@@ -297,7 +297,10 @@ const CFG = {
   recentGames: 4,   // Recent Results: never shows more than this many games
   nextUpGames: 3,   // Next Up
 
-  refreshMinutes: 5
+  refreshMinutes: 5,
+
+  // Order of the game-type filter. Types not listed here still appear, after these.
+  typeOrder: ["Seeding", "Regular Season", "Tournament"]
 };
 
 /* =====================================================
@@ -596,8 +599,7 @@ function renderTicker() {
   }).join("");
 
   $("ticker").innerHTML = res + up || `<div class="tgame"><div class="tdate">No games</div></div>`;
-  const nx = document.querySelector(".tgame.next");
-  if (nx) $("ticker").parentElement.scrollLeft = Math.max(0, nx.offsetLeft - 330);
+  // No auto-scroll: the bar opens at the far left (oldest of the recent games) and keeps its position on refresh
 }
 
 /* Leader card: ties share a rank (T-1, T-1, T-1, then 4), ties ordered by jersey number */
@@ -883,7 +885,7 @@ const isShutout = g => g._played && g.GA !== "" && num(g.GA) === 0;
 
 // Shutouts popup (Home page tile), same layout as the penalty card: tiles, then a game list with who was in net
 function openShutouts() {
-  const all = D.team.filter(inType).filter(g => g._played), games = all.filter(isShutout).reverse();
+  const all = D.team.filter(inType).filter(g => g._played), games = all.filter(isShutout);   // oldest first, like the player cards
   const inNet = g => D.goalies
     .filter(r => String(r.Game).trim() === String(g.Game).trim() && normOpp(r.Opponent) === normOpp(g.Opponent))
     .map(r => esc(String(r.Goalie).trim().split(/\s+/).pop())).join("<br>") || "—";   // last names keep the popup narrow
@@ -935,7 +937,9 @@ function renderAll() {
 }
 
 function buildTypeFilter() {
-  const types = [...new Set(D.team.map(g => g.Type).filter(Boolean))];
+  const rank = t => { const i = CFG.typeOrder.findIndex(x => normOpp(x) === normOpp(t)); return i < 0 ? CFG.typeOrder.length : i; };
+  const types = [...new Set(D.team.map(g => g.Type).filter(Boolean))].map((t, i) => [t, i])
+    .sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);   // listed order first, then sheet order
   const sel = $("typeFilter");
   sel.innerHTML = `<option value="">All games</option>` + types.map(t => `<option value="${esc(t)}"${t === typeFilter ? " selected" : ""}>${esc(t)}</option>`).join("");
   sel.style.display = types.length > 1 ? "" : "none";
