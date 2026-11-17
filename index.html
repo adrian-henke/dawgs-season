@@ -415,31 +415,31 @@ async function loadTab(name) {
   return rows.slice(1).map(r => Object.fromEntries(headers.map((h, i) => [h, (r[i] ?? "").trim()])));
 }
 
-/* Column glossary: heading -> [key text, hover text]. Headings listed here get a dotted underline and a hover label,
-   and keyFor() builds the "GP Games Played · G Goals ..." line shown under the Stats page tables (for phones). */
+/* Column glossary: heading -> [key text, hover text].
+   Key text: plain meaning, shown in the line under the Stats page tables (null = leave out of the key).
+   Hover text: only for columns with a formula or a rule worth explaining (null = no hover, no dotted underline). */
 const GLOSS = {
-  "GP":   ["Games Played", "Games Played"],
-  "G":    ["Goals", "Goals"],
-  "A":    ["Assists", "Assists"],
-  "P":    ["Points", "Points (goals + assists)"],
-  "+/-":  ["Plus/Minus", "Plus/Minus: +1 when on the ice for a goal for, −1 for a goal against"],
-  "P/GP": ["Points per Game", "Points per Game Played"],
-  "W":    ["Wins", "Wins"],
-  "L":    ["Losses", "Losses (regulation)"],
-  "T":    ["Ties", "Ties"],
-  "OTL":  ["OT & Shootout Losses", "Overtime & Shootout Losses"],
-  "Win %":["Win % (ties count half)", "Win percentage: (W + ½ × T) ÷ decisions"],
-  "GA":   ["Goals Against", "Goals Against"],
-  "MIN":  ["Minutes Played", "Minutes Played"],
-  "GAA":  [`Goals Against Avg (per ${CFG.gameMinutes}-min game)`, `Goals Against Average: goals allowed per full ${CFG.gameMinutes}-minute game`],
-  "SO":   ["Shutouts (full game, 0 GA)", "Shutouts: played the full game and allowed 0 goals"],
-  "PIM":  ["Penalty Minutes", "Penalty Minutes"],
-  "Gm":   ["Game", "Game number"],
-  "Dec.": ["Decision", "Decision: W, L, T or OTL (— = no decision)"],
-  "Pos":  ["Position", "Position"]
+  "Pos":  ["Position", null],
+  "GP":   ["Games Played", null],
+  "G":    ["Goals", null],
+  "A":    ["Assists", null],
+  "P":    ["Points", "Goals + Assists"],
+  "+/-":  ["Plus/Minus", "+1 when on the ice for a goal for, −1 for a goal against"],
+  "P/GP": ["Points per Game", "Points ÷ Games Played"],
+  "W":    ["Wins", null],
+  "L":    ["Losses", null],
+  "T":    ["Ties", null],
+  "OTL":  ["OT & Shootout Losses", "Overtime losses, including shootout losses"],
+  "Win %":[null, "(W + ½ × T) ÷ decisions. A tie counts as half a win"],
+  "GA":   ["Goals Against", null],
+  "MIN":  ["Minutes Played", null],
+  "GAA":  ["Goals Against Average", `Goals Against × ${CFG.gameMinutes} ÷ Minutes Played (goals allowed per full ${CFG.gameMinutes}-minute game)`],
+  "SO":   ["Shutouts", "Played the full game and allowed 0 goals"],
+  "PIM":  ["Penalty Minutes", null],
+  "Dec.": [null, "Decision: W, L, T or OTL (— = no decision)"]
 };
-const abbr = label => GLOSS[label] ? `<span class="abbr" title="${esc(GLOSS[label][1])}">${label}</span>` : label;
-const keyFor = labels => labels.filter(l => GLOSS[l]).map(l => `<b>${esc(l)}</b> ${esc(GLOSS[l][0])}`).join(" &middot; ");
+const abbr = label => GLOSS[label]?.[1] ? `<span class="abbr" title="${esc(GLOSS[label][1])}">${label}</span>` : label;
+const keyFor = labels => labels.filter(l => GLOSS[l]?.[0]).map(l => `<b>${esc(l)}</b> ${esc(GLOSS[l][0])}`).join(" &middot; ");
 
 /* Sortable table. cols: {k, l, n (numeric), mid (centered), f (custom cell html)}
    options: sort/asc (default sort), then (tie-break column, high to low), center (center numeric columns),
