@@ -132,14 +132,15 @@
   .back { background:none; border:0; color:var(--blue); font-weight:700; font-size:.9rem; cursor:pointer; margin-bottom:12px; padding:4px 0; }
   .back:hover { text-decoration:underline; }
   .gc-hero { background:linear-gradient(135deg,#000 0%,var(--blue-dark) 55%,var(--blue) 100%); color:#fff; border-radius:14px; padding:26px 20px;
-             display:flex; align-items:center; justify-content:space-around; gap:16px; box-shadow:0 6px 20px rgba(24,75,154,.3); }
+             display:flex; align-items:flex-start; justify-content:space-around; gap:16px; box-shadow:0 6px 20px rgba(24,75,154,.3); }
+  /* Teams are top-aligned so both logos and the first line of both names stay level, even when a long name wraps */
   .gc-team { text-align:center; flex:1; min-width:0; }
   /* Team logos show on their own (no frame), all fitted to the same size. Teams with no logo get a circle with initials. */
   .gc-badge { width:128px; height:128px; display:grid; place-items:center; margin:0 auto 10px; font-weight:800; font-size:1.5rem; }
   .gc-badge img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
-  .gc-badge.init { width:84px; height:84px; margin-bottom:16px; border-radius:50%; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.25); }
+  .gc-badge.init { width:84px; height:84px; margin:22px auto 32px; border-radius:50%; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.25); }
   .gc-name { font-weight:800; font-size:1.15rem; overflow-wrap:anywhere; }
-  .gc-mid { text-align:center; flex:1.2; }
+  .gc-mid { text-align:center; flex:1.2; align-self:center; }
   .gc-status { font-size:.75rem; font-weight:800; letter-spacing:.12em; color:#9db5e0; }
   .gc-score { font-size:2.6rem; font-weight:800; line-height:1.1; margin:6px 0; }
   .gc-meta { font-size:.85rem; color:#c9d6ee; line-height:1.5; }
@@ -183,7 +184,7 @@
     td, th { padding:9px 10px; }
     .gc-hero { padding:18px 10px; gap:8px; }
     .gc-badge { width:76px; height:76px; font-size:1rem; }
-    .gc-badge.init { width:56px; height:56px; margin-bottom:12px; }
+    .gc-badge.init { width:56px; height:56px; margin:10px auto 20px; }
     .gc-name { font-size:.9rem; }
     .gc-score { font-size:1.9rem; }
   }

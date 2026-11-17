@@ -6,20 +6,21 @@ For each image given (or every .png/.jpg/.jpeg/.webp in the site folder if none 
      connected to the image border is removed. Small gaps in a logo's outline are sealed
      first so the removal can't leak through them.
   2. Softens the edge where the logo meets the removed background, so there's no white halo.
-  3. Trims empty space, then centers the logo on a 512 x 512 transparent canvas, scaled so its
-     outermost point touches a circle of radius 232. The site shows logos in round badges,
-     so every logo (round, wide or tall) fills the badge the same way and stays clear of its border.
+  3. Trims empty space, then centers the logo (by its outline) on a 512 x 512 transparent canvas,
+     scaled so every logo has about the same visual size: its outline covers AREA square pixels,
+     but it never gets wider or taller than MAX. So a round logo and a wide logo look equally big
+     side by side, and every logo sits exactly in the middle.
   4. Saves it as a .png with the same name (a .jpg becomes a .png and the .jpg is removed).
 
 Logos that are already 512 x 512 with transparent corners are left alone, so it is safe to
-run on the whole folder any time. Use --refit to re-fit them anyway (after changing RADIUS).
+run on the whole folder any time. Use --refit to re-fit them anyway (after changing AREA or MAX).
 
 --fill-holes [N]  For logos that come with the background already cut out, but with the white
                   parts of the logo cut out too (e.g. white letters showing the page through).
                   Fills transparent areas *enclosed* by the logo with white. N (default 0) seals
                   outline gaps up to N pixels first, for areas that are almost but not fully
                   enclosed. Thin slivers are ignored. Always check the result on a dark background.
---refit           Also re-fit logos that are already clean (e.g. after changing RADIUS).
+--refit           Also re-fit logos that are already clean (e.g. after changing AREA or MAX).
 
 Needs Pillow:  python3 -m venv venv && venv/bin/pip install pillow
 Run:           venv/bin/python tools/clean_logo.py              (whole folder)
@@ -34,7 +35,8 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 SIZE = 512          # final canvas size
-RADIUS = 232        # logo's outermost point sits on this circle (the badge border starts at about 244)
+AREA = 400 * 400    # every logo's outline covers about this many square pixels (a square logo is 400 x 400)
+MAX = 480           # but no logo gets wider or taller than this
 TOLERANCE = 40      # how far from the background color still counts as background
 EDGE_BAND = 2       # pixels next to the background that get softened
 GAP = 3             # outline gaps up to about this many pixels are sealed, so white inside the logo isn't removed
@@ -114,32 +116,6 @@ def fill_holes(im, seal=0):
     white.putalpha(keep.filter(ImageFilter.MaxFilter(3)))   # 1 px under the outline so the edge blends
     white.alpha_composite(im)
     return white
-
-
-def circle_fit(im):
-    """Center (in the cropped image) and radius of the smallest circle around the visible logo."""
-    w, h = im.size
-    ap = im.getchannel("A").load()
-    pts = []
-    for y in range(h):   # each row's leftmost and rightmost visible pixel is enough
-        xs = [x for x in range(w) if ap[x, y] >= 64]
-        if xs:
-            pts += [(xs[0], y), (xs[-1] + 1, y)]
-    if not pts:
-        return w / 2, h / 2, max(w, h) / 2
-    pts = pts[::max(1, len(pts) // 1500)]
-    best = None
-    cx, cy, step = w / 2, h / 2, max(w, h) / 8
-    while step > 0.5:    # coarse-to-fine search for the center that needs the smallest circle
-        for dx in (-2, -1, 0, 1, 2):
-            for dy in (-2, -1, 0, 1, 2):
-                x0, y0 = cx + dx * step, cy + dy * step
-                r = max(((x - x0) ** 2 + (y - y0) ** 2) ** 0.5 for x, y in pts)
-                if best is None or r < best[2]:
-                    best = (x0, y0, r)
-        cx, cy = best[0], best[1]
-        step /= 2
-    return best
 
 
 def clean(path, holes=None, refit=False):
@@ -237,17 +213,16 @@ def clean(path, holes=None, refit=False):
                 elif a == 0.0:
                     px[x, y] = (0, 0, 0, 0)
 
-    # 3. Trim, scale so the logo's outermost point touches the RADIUS circle, center on the canvas
-    box = im.getchannel("A").getbbox()
+    # 3. Trim to the logo's outline, scale to the same visual size, center on the canvas
+    box = im.getchannel("A").point(lambda v: 255 if v >= 64 else 0).getbbox()
     if not box:
         print(f"error  {path.name}: nothing left after removing the background")
         return
     im = im.crop(box)
-    cx, cy, r = circle_fit(im)
-    scale = RADIUS / r
+    scale = min(MAX / im.width, MAX / im.height, (AREA / (im.width * im.height)) ** 0.5)
     im = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)
     out = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    out.alpha_composite(im, (round(SIZE / 2 - cx * scale), round(SIZE / 2 - cy * scale)))
+    out.alpha_composite(im, ((SIZE - im.width) // 2, (SIZE - im.height) // 2))
 
     # 4. Save as .png
     dest = path.with_suffix(".png")
