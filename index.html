@@ -287,8 +287,11 @@ const CFG = {
   logo: "Utah_Dawgs.png",
 
   // Opponent logos for the Game Center page.
-  // Add one line per team:  "Team name exactly as it appears in Team Stats": "file name in your repo",
-  // Teams without a line (or whose file isn't found) show their initials instead.
+  // Logos are found automatically by file name: the team name with spaces as underscores, e.g.
+  // "Utah Lady Grizzlies 14U A" finds Utah_Lady_Grizzlies.png (trailing words like 14U, A, B, Black are tried off).
+  // Only add a line here when the file name doesn't follow that pattern:
+  //   "Team name exactly as it appears in Team Stats": "file name in your repo",
+  // Teams with no logo file show their initials instead.
   teamLogos: {
     "Southern Utah Yeti":     "Southern_Utah_Yeti.png",
     "DC Wind B":              "DC_Wind.png",
@@ -371,12 +374,21 @@ const isTourney = g => (/tournament/i.test(g.Type || "") && isTBD(g.Time) && isT
 const splitRink = r => { const s = String(r || ""); const i = s.indexOf("|"); return i < 0 ? [s.trim(), ""] : [s.slice(0, i).trim(), s.slice(i + 1).trim()]; };
 const normOpp = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 const initials = s => String(s || "").split(/\s+/).filter(w => /[a-z0-9]/i.test(w)).map(w => w[0]).join("").slice(0, 3).toUpperCase();
-// Logo file for an opponent, looked up in CFG.teamLogos by team name
-const teamLogoFile = name => {
-  const k = normOpp(name);
-  for (const [n, f] of Object.entries(CFG.teamLogos)) if (normOpp(n) === k) return f;
-  return "";
+// Logo files to try for an opponent, in order: the CFG.teamLogos entry (if any), then file names built from
+// the team name, dropping trailing words: "Ogden Jr. Mustangs B" -> Ogden_Jr_Mustangs_B.png, Ogden_Jr_Mustangs.png, Ogden_Jr.png
+const teamLogoFiles = name => {
+  const k = normOpp(name), out = [];
+  for (const [n, f] of Object.entries(CFG.teamLogos)) if (normOpp(n) === k) out.push(f);
+  const words = String(name || "").replace(/[^A-Za-z0-9\s-]/g, "").split(/\s+/).filter(Boolean);
+  for (let i = words.length; i >= 2; i--) out.push(words.slice(0, i).join("_") + ".png");
+  return [...new Set(out)];
 };
+// <img> onerror: try the next file name, or fall back to the team's initials
+function nextLogo(img) {
+  const rest = (img.dataset.next || "").split("|").filter(Boolean);
+  if (rest.length) { img.dataset.next = rest.slice(1).join("|"); img.src = rest[0]; }
+  else img.parentNode.textContent = img.dataset.init;
+}
 
 function ts(d, t) {
   const m = String(d || "").match(/(\d+)\/(\d+)\/(\d+)/);
@@ -781,8 +793,10 @@ function renderGameCenter() {
     : `<div class="gc-status">UPCOMING</div><div class="gc-score">VS</div><div class="gc-meta">${when}<br>${where}</div>`;
 
   // Opponent badge: their logo file from CFG.teamLogos, or their initials if there's no file
-  const oppInit = esc(initials(opp)), oppFile = teamLogoFile(opp);
-  const oppBadge = oppFile ? `<img src="${esc(oppFile)}" alt="" onerror="this.parentNode.textContent='${oppInit}'">` : oppInit;
+  const oppInit = esc(initials(opp)), oppFiles = teamLogoFiles(opp);
+  const oppBadge = oppFiles.length
+    ? `<img src="${esc(oppFiles[0])}" alt="" data-init="${oppInit}" data-next="${esc(oppFiles.slice(1).join("|"))}" onerror="nextLogo(this)">`
+    : oppInit;
 
   $("gc").innerHTML = `
     <div class="gc-hero">
