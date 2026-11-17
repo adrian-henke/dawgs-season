@@ -134,11 +134,10 @@
   .gc-hero { background:linear-gradient(135deg,#000 0%,var(--blue-dark) 55%,var(--blue) 100%); color:#fff; border-radius:14px; padding:26px 20px;
              display:flex; align-items:center; justify-content:space-around; gap:16px; box-shadow:0 6px 20px rgba(24,75,154,.3); }
   .gc-team { text-align:center; flex:1; min-width:0; }
-  /* White badges: most team logos are designed for white, so they stay readable (initials show in blue) */
-  .gc-badge { width:84px; height:84px; border-radius:50%; background:#fff; border:2px solid rgba(255,255,255,.35); color:var(--blue);
-              box-shadow:0 2px 10px rgba(0,0,0,.25);
-              display:grid; place-items:center; margin:0 auto 10px; overflow:hidden; font-weight:800; font-size:1.4rem; }
-  .gc-badge img { width:100%; height:100%; object-fit:contain; }
+  /* Team logos show on their own (no frame), all fitted to the same size. Teams with no logo get a circle with initials. */
+  .gc-badge { width:128px; height:128px; display:grid; place-items:center; margin:0 auto 10px; font-weight:800; font-size:1.5rem; }
+  .gc-badge img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+  .gc-badge.init { width:84px; height:84px; margin-bottom:16px; border-radius:50%; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.25); }
   .gc-name { font-weight:800; font-size:1.15rem; overflow-wrap:anywhere; }
   .gc-mid { text-align:center; flex:1.2; }
   .gc-status { font-size:.75rem; font-weight:800; letter-spacing:.12em; color:#9db5e0; }
@@ -183,7 +182,8 @@
     .brand p { font-size:.8rem; }
     td, th { padding:9px 10px; }
     .gc-hero { padding:18px 10px; gap:8px; }
-    .gc-badge { width:56px; height:56px; font-size:1rem; }
+    .gc-badge { width:76px; height:76px; font-size:1rem; }
+    .gc-badge.init { width:56px; height:56px; margin-bottom:12px; }
     .gc-name { font-size:.9rem; }
     .gc-score { font-size:1.9rem; }
   }
@@ -375,7 +375,12 @@ const isTBD = v => /^\s*(tbd|tba)?\s*$/i.test(String(v ?? ""));
 const isTourney = g => (/tournament/i.test(g.Type || "") && isTBD(g.Time) && isTBD(g.Opponent)) || String(g.Game || "").trim().toUpperCase() === "T";
 const splitRink = r => { const s = String(r || ""); const i = s.indexOf("|"); return i < 0 ? [s.trim(), ""] : [s.slice(0, i).trim(), s.slice(i + 1).trim()]; };
 const normOpp = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
-const initials = s => String(s || "").split(/\s+/).filter(w => /[a-z0-9]/i.test(w)).map(w => w[0]).join("").slice(0, 3).toUpperCase();
+// Initials for teams with no logo: skips age/level words like 14U, 12U, A, B ("Example Team 14U A" -> ET)
+const initials = s => {
+  const words = String(s || "").split(/\s+/).filter(w => /^[a-z]/i.test(w));
+  while (words.length > 1 && /^[a-z]$/i.test(words[words.length - 1])) words.pop();
+  return words.map(w => w[0]).join("").slice(0, 3).toUpperCase();
+};
 // Logo files to try for an opponent, in order: the CFG.teamLogos entry (if any), then file names built from
 // the team name, dropping trailing words: "Ogden Jr. Mustangs B" -> Ogden_Jr_Mustangs_B.png, Ogden_Jr_Mustangs.png, Ogden_Jr.png
 const teamLogoFiles = name => {
@@ -389,7 +394,7 @@ const teamLogoFiles = name => {
 function nextLogo(img) {
   const rest = (img.dataset.next || "").split("|").filter(Boolean);
   if (rest.length) { img.dataset.next = rest.slice(1).join("|"); img.src = rest[0]; }
-  else img.parentNode.textContent = img.dataset.init;
+  else { img.parentNode.classList.add("init"); img.parentNode.textContent = img.dataset.init; }
 }
 
 function ts(d, t) {
@@ -802,9 +807,9 @@ function renderGameCenter() {
 
   $("gc").innerHTML = `
     <div class="gc-hero">
-      <div class="gc-team"><div class="gc-badge"><img src="${esc(CFG.logo)}" alt="" onerror="this.parentNode.textContent='${esc(CFG.crestText)}'"></div><div class="gc-name">${esc(CFG.teamName)}</div></div>
+      <div class="gc-team"><div class="gc-badge"><img src="${esc(CFG.logo)}" alt="" onerror="this.parentNode.classList.add('init');this.parentNode.textContent='${esc(CFG.crestText)}'"></div><div class="gc-name">${esc(CFG.teamName)}</div></div>
       <div class="gc-mid">${center}</div>
-      <div class="gc-team"><div class="gc-badge">${oppBadge}</div><div class="gc-name">${esc(opp)}</div></div>
+      <div class="gc-team"><div class="gc-badge${oppFiles.length ? "" : " init"}">${oppBadge}</div><div class="gc-name">${esc(opp)}</div></div>
     </div>
     <h2 class="sec">Head-to-Head vs ${esc(opp)}</h2>
     <div class="stats" id="gc-stats"></div>
