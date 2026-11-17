@@ -80,11 +80,12 @@
   .note.key { line-height:1.6; }
   .note.key b { color:var(--ink); }
 
-  /* KPI tiles: centered, one-line titles, always a single row (scrolls sideways on small screens) */
-  .stats { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 8px; scrollbar-width:thin; }
-  .stat { flex:1 0 auto; text-align:center; background:linear-gradient(160deg,var(--blue) 0%,var(--blue-dark) 100%); color:#fff;
+  /* KPI tiles: centered, as many per row as fit, wrapping onto more rows (no sideways scrolling) */
+  .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; padding:2px 2px 8px; }
+  @media (min-width:1000px) { .stats { grid-template-columns:repeat(var(--cols, 6), 1fr); } }
+  .stat { min-width:0; display:flex; flex-direction:column; justify-content:space-between; text-align:center; background:linear-gradient(160deg,var(--blue) 0%,var(--blue-dark) 100%); color:#fff;
           border-radius:12px; padding:16px 14px; box-shadow:0 4px 14px rgba(24,75,154,.28); }
-  .stat .lbl { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.78); white-space:nowrap; }
+  .stat .lbl { font-size:.68rem; line-height:1.3; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.78); }
   .stat .val { font-size:1.75rem; font-weight:800; margin-top:6px; white-space:nowrap; }
   .stat.click { cursor:pointer; transition:transform .12s, box-shadow .12s; }
   .stat.click:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(24,75,154,.38); }
@@ -99,6 +100,13 @@
   .lrow .rank { min-width:28px; color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums; }
   .lrow .name { flex:1; font-weight:600; }
   .lrow .num { font-weight:800; font-variant-numeric:tabular-nums; }
+  .lrow { min-height:42px; }
+  .lrow.none { cursor:default; color:var(--muted); font-style:italic; }
+  .lrow.none:hover, .lrow.blank:hover { background:none; }
+  .lrow.more { color:var(--blue); font-weight:700; }
+  .lrow.more .name { font-weight:700; }
+  .mlist { padding:8px 0 12px; }
+  .lrow.blank { cursor:default; border-bottom-color:transparent; }
   .lrow.first { background:#eaf1fd; }
   .lrow.first:hover { background:var(--hover); }
 
@@ -198,12 +206,38 @@
     .brand h1 { font-size:1.4rem; }
     .brand p { font-size:.8rem; }
     td, th { padding:9px 10px; }
+    .stats { grid-template-columns:repeat(3, 1fr); gap:8px; }
+    .stat { padding:12px 6px; border-radius:10px; }
+    .stat .lbl { font-size:.6rem; letter-spacing:.04em; }
+    .stat .val { font-size:1.3rem; margin-top:4px; }
     .gc-hero { padding:18px 10px; gap:8px; }
     .gc-badge { width:76px; height:76px; font-size:1rem; }
     .gc-badge.init { width:56px; height:56px; margin:10px auto 20px; }
     .gc-name { font-size:.9rem; }
     .gc-score { font-size:1.9rem; }
   }
+#sp-tables h2.sec:first-child { margin-top:28px; }
+/* Stat definitions: (i) button in the header opens a popup for the current page */
+.info-btn { flex-shrink:0; width:34px; height:34px; border-radius:50%; border:1.5px solid var(--blue-hi); background:none; color:#fff;
+            font:italic 800 1.05rem Georgia,"Times New Roman",serif; cursor:pointer; transition:background .15s; }
+.info-btn:hover { background:var(--blue); }
+.defs { padding:6px 20px 20px; }
+.defs h3 { font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--blue); margin:18px 0 6px; }
+.defs .d { display:grid; grid-template-columns:190px 1fr; gap:14px; padding:9px 0; border-bottom:1px solid var(--line); font-size:.86rem; line-height:1.45; }
+.defs .d:last-child { border-bottom:0; }
+.defs .d b { color:var(--ink); }
+.defs .d span { color:var(--muted); }
+@media (max-width:520px) { .defs { padding:4px 14px 16px; } .defs .d { grid-template-columns:1fr; gap:2px; } .info-btn { width:30px; height:30px; } }
+/* Phones: five menu tabs fit across without scrolling */
+@media (max-width:600px) {
+  .navin { padding:0 4px; justify-content:space-between; }
+  nav button { padding:13px 9px; font-size:.74rem; letter-spacing:.04em; }
+}
+/* Game Center box score */
+.card.box table { font-size:.92rem; }
+.card.box td.mid { font-variant-numeric:tabular-nums; }
+.click-name { color:var(--blue); font-weight:700; cursor:pointer; }
+.click-name:hover { text-decoration:underline; }
 .mvs{margin-top:4px;font-size:13px;font-weight:700;opacity:.85;letter-spacing:.3px}
 #gc-pen table,#tbl-penalties table,table.even{table-layout:fixed;width:100%}
 #gc-pen table,#tbl-penalties table{min-width:560px}
@@ -228,6 +262,7 @@ table.even.so th:nth-child(4){width:12%}table.even.so th:nth-child(5){width:13%}
     <div class="crest" id="crest">UD</div>
     <div class="brand"><h1 id="teamName"></h1><p id="seasonLabel"></p></div>
     <div class="filter" id="filterWrap"><select id="typeFilter" title="Game type"></select></div>
+    <button class="info-btn" id="info-btn" title="Stat definitions for this page" aria-label="Stat definitions">i</button>
   </div>
   <nav><div class="navin" id="nav"></div></nav>
 </header>
@@ -240,8 +275,10 @@ table.even.so th:nth-child(4){width:12%}table.even.so th:nth-child(5){width:13%}
     <div class="stats" id="stats"></div>
     <h2 class="sec">Next Up</h2>
     <div class="card"><div class="tablewrap" id="upcoming"></div></div>
-    <h2 class="sec">Team Leaders</h2>
+    <h2 class="sec">Skater Leaders</h2>
     <div class="leaders" id="leaders"></div>
+    <h2 class="sec">Goalie Leaders</h2>
+    <div class="leaders" id="goalie-leaders"></div>
     <h2 class="sec">Recent Results</h2>
     <div class="card"><div class="tablewrap" id="recent"></div></div>
   </section>
@@ -280,6 +317,18 @@ table.even.so th:nth-child(4){width:12%}table.even.so th:nth-child(5){width:13%}
     <p class="note" id="pen-summary"></p>
     <div class="card"><div class="tablewrap" id="tbl-penalties"></div></div>
     <p class="note after key" id="pen-key"></p>
+  </section>
+
+  <!-- SPLITS (special teams, goals by period, record splits) -->
+  <section class="view" id="view-splits">
+    <h2 class="sec">Special Teams &amp; Shots</h2>
+    <div class="stats" id="sp-tiles"></div>
+    <p class="note after" id="sp-note"></p>
+    <h2 class="sec">Goals by Period</h2>
+    <div class="card"><div class="tablewrap" id="sp-period"></div></div>
+    <p class="note after" id="sp-period-note"></p>
+    <div id="sp-tables"></div>
+    <p class="note after key" id="sp-key"></p>
   </section>
 
   <!-- ROSTER -->
@@ -333,10 +382,15 @@ const CFG = {
   tickerNext: 12,   // upcoming games
 
   // Home page tables
-  recentGames: 4,   // Recent Results: never shows more than this many games
+  recentGames: 5,   // Recent Results: never shows more than this many games (matches the Last 5 tile)
   nextUpGames: 3,   // Next Up
 
   refreshMinutes: 5,
+
+  // In-state vs out-of-state split on the Splits page. Rinks are in-state unless listed here
+  // (or written as "Rink | City, ST" with a different state).
+  homeState: "UT",
+  outOfStateRinks: { "Idaho Ice World":"ID", "America First Center":"NV" },
 
   // Order of the game-type filter. Types not listed here still appear, after these.
   typeOrder: ["Seeding", "Regular Season", "Tournament"]
@@ -356,6 +410,11 @@ const num = v => {
   return /^\(.*\)$/.test(s) ? -Math.abs(n) : n;
 };
 const bool = v => String(v).trim().toUpperCase() === "TRUE";
+const filled = v => String(v ?? "").trim() !== "";
+const jnum = s => String(s ?? "").replace(/[^0-9]/g, "");          // "#94" -> "94"
+const sameGame = (r, g) => String(r.Game).trim() === String(g.Game).trim() && normOpp(r.Opponent) === normOpp(g.Opponent);
+const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+const svFmt = v => v === null || v === undefined ? "—" : v >= 1 ? "1.000" : v.toFixed(3).replace(/^0/, "");   // .912
 // Goalie decision: W, L, T, OTL, or "" (ND / blank = no decision).
 // Reads the Decision column; also accepts Win / Loss / Tie / OT Loss / SOL, and the old W/L/T/OT checkbox columns.
 const decision = r => {
@@ -472,7 +531,16 @@ const GLOSS = {
   "GAA":  ["Goals Against Average", `Goals Against × ${CFG.gameMinutes} ÷ Minutes Played (goals allowed per full ${CFG.gameMinutes}-minute game)`],
   "SO":   ["Shutouts", "Played the full game and allowed 0 goals"],
   "PIM":  ["Penalty Minutes", null],
-  "Dec.": [null, "Decision: W, L, T or OTL (— = no decision)"]
+  "Dec.": [null, "Decision: W, L, T or OTL (— = no decision)"],
+  "GWG":  ["Game-Winning Goals", "The goal that put the Dawgs ahead for good in a win"],
+  "SA":   ["Shots Against", null],
+  "SV%":  ["Save Percentage", "Saves ÷ Shots Against (.900 = stopped 9 of every 10 shots)"],
+  "Record": [null, "Wins - Losses - Ties - OT/shootout losses"],
+  "Diff": ["Goal Differential", null],
+  "GF":   ["Goals For", null],
+  "GF/GP":["Goals For per Game", null],
+  "GA/GP":["Goals Against per Game", null],
+  "PIM/GP":["Penalty Minutes per Game", null]
 };
 const abbr = label => GLOSS[label]?.[1] ? `<span class="abbr" title="${esc(GLOSS[label][1])}">${label}</span>` : label;
 const keyFor = labels => labels.filter(l => GLOSS[l]?.[0]).map(l => `<b>${esc(l)}</b> ${esc(GLOSS[l][0])}`).join(" &middot; ");
@@ -523,6 +591,8 @@ function table(el, cols, rows, o = {}) {
 
 const renderTiles = (el, tiles) => {
   // Optional third item makes the tile clickable, e.g. ["Shutouts", 2, 'data-open="shutouts"']
+  // Wide screens: up to 8 tiles in one row, more than that split into two even rows
+  el.style.setProperty("--cols", tiles.length <= 8 ? tiles.length : Math.ceil(tiles.length / 2));
   el.innerHTML = tiles.map(([a, b, attrs]) => `<div class="stat${attrs ? " click" : ""}"${attrs ? " " + attrs : ""}><div class="lbl">${a}</div><div class="val">${b}</div></div>`).join("");
 };
 
@@ -535,9 +605,13 @@ let POS = new Map();
 let currentGC = null, pendingGC = null, gcReturn = "schedule";
 const SK = { t:null, rows:[] }, GO = { t:null, rows:[] }, PEN = { t:null, rows:[] };
 
+// Optional columns: stats whose column isn't in the sheet are hidden
+const HAS = { gwg:false, sa:false };
 function detectColumns() {
   const k = Object.keys(D.skaters[0] || {}).find(k => /plus|\+\s*\/\s*-|±/i.test(k));
   if (k) PM_KEY = k;
+  HAS.gwg = D.team.some(g => filled(g.GWG));
+  HAS.sa = D.goalies.some(r => filled(r.SA));
 }
 
 function prepGames(rows) {
@@ -554,7 +628,19 @@ function prepGames(rows) {
     if (r) code = win ? "W" : tie ? "T" : ot ? "OTL" : "L";
     const suffix = !code || tie ? "" : so ? " (SO)" : ot ? " (OT)" : "";
     const tourn = isTourney(g);
-    return { ...g, _ts: ts(g.Date, g.Time), _gm: num(g.Game), _code: code, _played: code !== "", _suffix: suffix,
+    // Type shown in tables: the tournament's name for tournament games (Tournament column, or the name part of Rink
+    // on placeholder rows like "Winter Classic | Las Vegas, NV"), otherwise the Type itself
+    const tname = String(g.Tournament || "").trim() || (tourn ? splitRink(g.Rink)[0] : "");
+    const typeName = /tournament/i.test(g.Type || "") && tname ? tname : (g.Type || "");
+    // Optional game details. A blank cell means "not entered yet", so totals only count games that have it.
+    // Periods: needs 1P-3P for both teams (blank OT = 0). Power play: needs PPG and PPO (blank PPGA/SHG/SHGA = 0).
+    const v = (...ks) => { for (const k of ks) if (filled(g[k])) return num(g[k]); return null; };
+    const pf = ["1P","2P","3P"].map(p => v("GF" + p)), pa = ["1P","2P","3P"].map(p => v("GA" + p));
+    const per = code && [...pf, ...pa].every(x => x !== null) ? { f:[...pf, v("GFOT") || 0], a:[...pa, v("GAOT") || 0] } : null;
+    const ppg = v("PPG"), ppo = v("PPO");
+    const pp = code && ppg !== null && ppo !== null
+      ? { ppg, ppo, ppga: v("PPGA","PKGA","PPA") || 0, pko: v("PKO","PPOA","TSH"), shg: v("SHG") || 0, shga: v("SHGA") || 0 } : null;
+    return { ...g, _typeName: typeName, _per: per, _pp: pp, _sf: code ? v("SF","SOG") : null, _sa: code ? v("SA") : null, _ts: ts(g.Date, g.Time), _gm: num(g.Game), _code: code, _played: code !== "", _suffix: suffix,
              _tourn: tourn, _hasOpp: !tourn && !isTBD(g.Opponent), _future: ts(g.Date) >= today0.getTime(),
              _key: [g.Game, g.Date, g.Time, g.Opponent].join("~") };
   }).sort((a, b) => a._ts - b._ts || a._gm - b._gm);
@@ -569,14 +655,20 @@ const vs = g => {
 };
 
 /* ----- Aggregations (every tab is summed per player) ----- */
+// Game-winning goal scorer's jersey for a skater row's game (GWG column in Team Stats, e.g. #94)
+const gwgFor = r => { const g = D.team.find(g => sameGame(r, g)); return g ? jnum(g.GWG) : ""; };
 function skaterAgg(rows) {
   const m = new Map();
-  rows.forEach(r => {
+  [...rows].sort((a, b) => ts(a.Date) - ts(b.Date) || num(a.Game) - num(b.Game)).forEach(r => {
     const n = r.Player; if (!n) return;
-    let a = m.get(n); if (!a) { a = { Player:n, Jersey:r.Jersey, GP:0, G:0, A:0, P:0, PM:0 }; m.set(n, a); }
-    a.GP++; a.G += num(r.G); a.A += num(r.A);
-    a.P += r.P !== "" ? num(r.P) : num(r.G) + num(r.A);
+    let a = m.get(n); if (!a) { a = { Player:n, Jersey:r.Jersey, GP:0, G:0, A:0, P:0, PM:0, GWG:0, MULTI:0, STREAK:0, BEST:0 }; m.set(n, a); }
+    const p = r.P !== "" ? num(r.P) : num(r.G) + num(r.A);
+    a.GP++; a.G += num(r.G); a.A += num(r.A); a.P += p;
     a.PM += num(r[PM_KEY]);
+    if (num(r.G) > 0 && jnum(r.Jersey) && gwgFor(r) === jnum(r.Jersey)) a.GWG++;
+    if (p >= 2) a.MULTI++;
+    // Point streak: games in a row (that the player played) with at least one point
+    a.STREAK = p > 0 ? a.STREAK + 1 : 0; a.BEST = Math.max(a.BEST, a.STREAK);
     a.Jersey = r.Jersey || a.Jersey;
   });
   return [...m.values()].map(a => ({ ...a, JN: num(a.Jersey), PPG: a.GP ? +(a.P / a.GP).toFixed(2) : 0 }));
@@ -587,14 +679,17 @@ function goalieAgg(rows) {
   const m = new Map();
   rows.forEach(r => {
     const n = r.Goalie; if (!n) return;
-    let a = m.get(n); if (!a) { a = { Player:n, Jersey:r.Jersey, GP:0, W:0, L:0, T:0, OTL:0, GA:0, MIN:0, SO:0 }; m.set(n, a); }
+    let a = m.get(n); if (!a) { a = { Player:n, Jersey:r.Jersey, GP:0, W:0, L:0, T:0, OTL:0, GA:0, MIN:0, SO:0, SA:null, saGA:0 }; m.set(n, a); }
     a.GP++; const dc = decision(r); if (dc) a[dc]++;
     a.GA += num(r.GA); a.MIN += num(r.Minutes);
+    // Save % only counts games where shots against were entered
+    if (filled(r.SA)) { a.SA = (a.SA || 0) + num(r.SA); a.saGA += num(r.GA); }
     // Shutout only for a goalie who played the whole game and allowed 0 (split-game zeros are team shutouts)
     if (num(r.Minutes) >= CFG.gameMinutes && r.GA !== "" && num(r.GA) === 0) a.SO++;
     a.Jersey = r.Jersey || a.Jersey;
   });
   return [...m.values()].map(a => ({ ...a, JN: num(a.Jersey), GAA: a.MIN > 0 ? +(a.GA * CFG.gameMinutes / a.MIN).toFixed(2) : null, MIN: +a.MIN.toFixed(1),
+    SVP: a.SA ? (a.SA - a.saGA) / a.SA : null,
     DEC: a.W + a.L + a.T + a.OTL, WPCT: (a.W + a.L + a.T + a.OTL) ? (a.W + 0.5 * a.T) / (a.W + a.L + a.T + a.OTL) : null }));
 }
 
@@ -617,6 +712,7 @@ const skaterCols = () => [
   { k:"GP", l:"GP", n:true }, { k:"G", l:"G", n:true }, { k:"A", l:"A", n:true },
   { k:"P", l:"P", n:true, f:r => `<b>${r.P}</b>` },
   { k:"PM", l:"+/-", n:true, f:r => pm(r.PM) },
+  ...(HAS.gwg ? [{ k:"GWG", l:"GWG", n:true }] : []),
   { k:"PPG", l:"P/GP", n:true, f:r => `<b>${r.PPG.toFixed(2)}</b>` }
 ];
 const goalieCols = () => [
@@ -625,6 +721,7 @@ const goalieCols = () => [
   { k:"WPCT", l:"Win %", n:true, f:r => r.WPCT === null ? "—" : Math.round(r.WPCT * 100) + "%" },
   { k:"GA", l:"GA", n:true }, { k:"MIN", l:"MIN", n:true },
   { k:"GAA", l:"GAA", n:true, f:r => r.GAA === null ? "—" : `<b>${r.GAA.toFixed(2)}</b>` },
+  ...(HAS.sa ? [{ k:"SA", l:"SA", n:true, f:r => r.SA ?? "—" }, { k:"SVP", l:"SV%", n:true, f:r => `<b>${svFmt(r.SVP)}</b>` }] : []),
   { k:"SO", l:"SO", n:true }
 ];
 const penaltyCols = () => [
@@ -687,20 +784,44 @@ function renderTicker() {
   tickerFade();
 }
 
-/* Leader card: ties share a rank (T-1, T-1, T-1, then 4), ties ordered by jersey number */
+/* Leader card: always 5 rows so every card is the same size.
+   Ties share a rank (T-2, T-2 ...), ordered by jersey number. When a tie runs past 5 players,
+   the last row says how many more are tied ("+4 more tied at 2"). Short lists get blank rows. */
+const LEADER_ROWS = 5;
+const LEADER_LISTS = new Map();
+// "+4 more tied" popup: every player on that card, including the tied ones that didn't fit
+function openLeaders(title) {
+  const l = LEADER_LISTS.get(title); if (!l) return;
+  $("mbody").innerHTML = `<div class="mhead"><div class="mj">${esc(typeFilter || "All games")} &bull; ${esc(CFG.season)}</div><h2>${esc(title)}</h2></div>
+    <div class="mlist">${l.rows}</div>`;
+  $("modal").classList.add("open");
+}
 function leaderCard(title, rows, key, o = {}) {
-  const fmt = o.fmt || (v => v);
+  const fmt = o.fmt || (v => v), N = o.rows || LEADER_ROWS;
   const pool = rows.filter(o.filter || (() => true));
   const dir = o.asc ? 1 : -1;
   pool.sort((a, b) => dir * (a[key] - b[key]) || num(a.Jersey) - num(b.Jersey));
-  const ranked = pool.map(p => ({
+  const all = pool.map(p => ({
     p,
     rank: pool.filter(q => o.asc ? q[key] < p[key] : q[key] > p[key]).length + 1,
     tied: pool.filter(q => q[key] === p[key]).length > 1
-  })).filter(x => x.rank <= 5);
-  return `<div class="card leader"><h3>${title}</h3>${ranked.length ? ranked.map(x =>
-    `<div class="lrow${x.rank === 1 ? " first" : ""}" data-player="${esc(x.p.Player)}"><span class="rank">${x.tied ? "T-" : ""}${x.rank}</span><span class="name">${esc(x.p.Player)}</span><span class="num">${fmt(x.p[key])}</span></div>`).join("")
-    : `<div class="msg">No data</div>`}</div>`;
+  }));
+  const ranked = all.filter(x => x.rank <= N);
+  const row = x => `<div class="lrow${x.rank === 1 ? " first" : ""}" data-player="${esc(x.p.Player)}"><span class="rank">${x.tied ? "T-" : ""}${x.rank}</span><span class="name">${esc(x.p.Player)}</span><span class="num">${fmt(x.p[key])}</span></div>`;
+  let html = "";
+  if (ranked.length > N) {
+    // Everyone past row 4 is tied at the same value
+    const more = ranked.slice(N - 1);
+    html = ranked.slice(0, N - 1).map(row).join("") +
+      `<div class="lrow more" data-leaders="${esc(title)}" title="See everyone"><span class="rank"></span><span class="name">+${more.length} more tied at ${fmt(more[0].p[key])} &rsaquo;</span></div>`;
+    // Kept for the popup that lists everyone on this card
+    LEADER_LISTS.set(title, { rows: all.filter(x => x.rank <= N).map(row).join("") });
+  } else {
+    html = ranked.map(row).join("") +
+      (ranked.length ? "" : `<div class="lrow none"><span class="name">${o.none || "None yet"}</span></div>`) +
+      `<div class="lrow blank"></div>`.repeat(Math.max(0, N - Math.max(1, ranked.length)));
+  }
+  return `<div class="card leader"><h3>${title}</h3>${html}</div>`;
 }
 
 function renderHome() {
@@ -710,19 +831,24 @@ function renderHome() {
   const gf = done.reduce((s, g) => s + num(g.GF), 0), ga = done.reduce((s, g) => s + num(g.GA), 0), gp = done.length;
   // Team PIM = every row in Penalty Stats, including bench minors
   const pims = D.penalties.filter(inType).reduce((s, r) => s + num(r.PIM), 0);
+  // Recent form: current streak (W2 = 2 wins in a row) and record over the last 5 games
+  let streak = "—";
+  if (gp) { const c = done[gp - 1]._code; let n = 0; for (let i = gp - 1; i >= 0 && done[i]._code === c; i--) n++; streak = c + n; }
+  const l5 = done.slice(-5), c5 = c => l5.filter(g => g._code === c).length;
   renderTiles($("stats"), [
     ["Record (W-L-T-OTL)", `${w}-${l}-${t}-${otl}`], ["Games Played", gp],
     ["Win %", winPct(w, t, gp)],
-    ["Goals For", gf], ["Goals Against", ga], ["Goal Diff", signed(gf - ga)],
-    ["GF / Game", gp ? (gf / gp).toFixed(2) : "—"], ["GA / Game", gp ? (ga / gp).toFixed(2) : "—"],
+    ["Streak", streak], ["Last 5", gp ? `${c5("W")}-${c5("L")}-${c5("T")}-${c5("OTL")}` : "—"],
+    ["Goals For", gf], ["Goals Against", ga], ["Goal Differential", signed(gf - ga)],
+    ["Goals For / Game", gp ? (gf / gp).toFixed(2) : "—"], ["Goals Against / Game", gp ? (ga / gp).toFixed(2) : "—"],
     ["Shutouts", done.filter(isShutout).length, 'data-open="shutouts" title="See shutout games"'],
-    ["Penalty Min", pimFmt(pims)]
+    ["Penalty Minutes", pimFmt(pims)]
   ]);
 
   // Next Up and Recent Results always show the actual next / last games; rows with an opponent open the Game Center
   table($("upcoming"), [
     { k:"Date", l:"Date", mid:true, f:g => esc(shortDate(g.Date)) }, { k:"Time", l:"Time", mid:true },
-    { k:"Opponent", l:"Opponent", f:g => vs(g) }, { k:"Rink", l:"Rink" }, { k:"Type", l:"Type" }
+    { k:"Opponent", l:"Opponent", f:g => vs(g) }, { k:"Rink", l:"Rink" }, { k:"_typeName", l:"Type" }
   ], upcomingGames().slice(0, CFG.nextUpGames), { game:true, empty:"No upcoming games scheduled." });
 
   const sk = skaterAgg(D.skaters.filter(inType)), go = goalieAgg(D.goalies.filter(inType));
@@ -730,10 +856,16 @@ function renderHome() {
     leaderCard("Points", sk, "P", { filter:p => p.P > 0 }) +
     leaderCard("Goals", sk, "G", { filter:p => p.G > 0 }) +
     leaderCard("Assists", sk, "A", { filter:p => p.A > 0 }) +
-    leaderCard("Points / Game", sk, "PPG", { filter:p => p.P > 0, fmt:v => v.toFixed(2) }) +
-    leaderCard("Plus / Minus", sk, "PM", { fmt:signed }) +
-    leaderCard("Goalie Wins", go, "W", { filter:g => g.W > 0 }) +
-    leaderCard("Goals Against Avg", go, "GAA", { asc:true, filter:g => g.GAA !== null && g.MIN > 0, fmt:v => v.toFixed(2) });
+    leaderCard("Points Per Game", sk, "PPG", { filter:p => p.P > 0, fmt:v => v.toFixed(2) }) +
+    leaderCard("Plus/Minus", sk, "PM", { fmt:signed }) +
+    (HAS.gwg ? leaderCard("Game-Winning Goals", sk, "GWG", { filter:p => p.GWG > 0 }) : "") +
+    leaderCard("Active Point Streak", sk, "STREAK", { filter:p => p.STREAK > 1, fmt:v => v + " games", none:"No active streaks" });
+  // Goalie cards are as tall as the number of goalies (up to 5)
+  const gRows = Math.min(LEADER_ROWS, Math.max(1, go.length));
+  $("goalie-leaders").innerHTML =
+    leaderCard("Wins", go, "W", { filter:g => g.W > 0, rows:gRows }) +
+    leaderCard("Goals-Against Average", go, "GAA", { asc:true, filter:g => g.GAA !== null && g.MIN > 0, fmt:v => v.toFixed(2), rows:gRows }) +
+    (HAS.sa ? leaderCard("Save Percentage", go, "SVP", { filter:g => g.SVP !== null, fmt:svFmt, rows:gRows }) : "");
 
   // Most recent first, and never more than CFG.recentGames rows
   const recent = D.team.filter(g => g._played).slice(-CFG.recentGames).reverse().slice(0, CFG.recentGames);
@@ -750,7 +882,7 @@ function scheduleCols() {
     { k:"Rink", l:"Rink" },
     { k:"GF", l:"Score", n:true, mid:true, f:g => g._played ? `${esc(g.GF)} – ${esc(g.GA)}` : "—" },
     { k:"_code", l:"Result", mid:true, f:g => badge(g) },
-    { k:"Type", l:"Type" }
+    { k:"_typeName", l:"Type" }
   ];
 }
 
@@ -784,6 +916,136 @@ function renderPenalties() {
   // Clicking a row opens the penalty card (all of that player's penalties)
   PEN.t = table($("tbl-penalties"), penaltyCols(), PEN.rows.filter(hit), { sort:"PIM", pen:"Player", center:true, empty:searchEmpty("No penalties recorded.") });
   $("pen-key").innerHTML = keyFor(penaltyCols().map(c => c.l)) + " &middot; Minor 1.5 &middot; Major 4 &middot; Misconduct 8";
+}
+
+/* ----- Splits page -----
+   Follows the game-type filter. Each split table: record, goals and penalty minutes for a group of games. */
+const gamePIM = g => D.penalties.filter(r => sameGame(r, g)).reduce((s, r) => s + num(r.PIM), 0);
+// Times shorthanded (estimate): Dawgs minors and majors in Penalty Stats, including bench minors.
+// Offsetting penalties can't be told apart, so this can run a little high.
+const gameMinors = g => D.penalties.filter(r => sameGame(r, g) && [1.5, 4].includes(num(r.PIM))).length;
+function splitRow(label, games) {
+  const c = k => games.filter(g => g._code === k).length;
+  const gp = games.length, w = c("W"), t = c("T");
+  const gf = games.reduce((s, g) => s + num(g.GF), 0), ga = games.reduce((s, g) => s + num(g.GA), 0);
+  const pim = games.reduce((s, g) => s + gamePIM(g), 0);
+  const per = x => gp ? +(x / gp).toFixed(2) : null;
+  return { Split:label, GP:gp, Rec:`${w}-${c("L")}-${t}-${c("OTL")}`, WP: gp ? (w + 0.5 * t) / gp : null,
+           GF:gf, GA:ga, DIFF:gf - ga, GFPG:per(gf), GAPG:per(ga), PIMPG:per(pim) };
+}
+const splitCols = first => [
+  { k:"Split", l:first }, { k:"GP", l:"GP", n:true }, { k:"Rec", l:"Record", mid:true },
+  { k:"WP", l:"Win %", n:true, f:r => r.WP === null ? "—" : `<b>${Math.round(r.WP * 100)}%</b>` },
+  { k:"GF", l:"GF", n:true }, { k:"GA", l:"GA", n:true }, { k:"DIFF", l:"Diff", n:true, f:r => pm(r.DIFF) },
+  { k:"GFPG", l:"GF/GP", n:true, f:r => r.GFPG?.toFixed(2) ?? "—" }, { k:"GAPG", l:"GA/GP", n:true, f:r => r.GAPG?.toFixed(2) ?? "—" },
+  { k:"PIMPG", l:"PIM/GP", n:true, f:r => r.PIMPG?.toFixed(2) ?? "—" }
+];
+// Groups games by a label; groups come out in the order given, or first-seen order
+function groupBy(games, labelOf, order) {
+  const m = new Map((order || []).map(k => [k, []]));
+  games.forEach(g => { const k = labelOf(g); if (k === null || k === undefined) return; if (!m.has(k)) m.set(k, []); m.get(k).push(g); });
+  return [...m.entries()].filter(([, gs]) => gs.length).map(([k, gs]) => splitRow(k, gs));
+}
+
+// Power play and penalty kill totals for a list of games that have power-play data.
+// Times shorthanded = PKO; games without PKO use the Penalty Stats estimate (est = true).
+const timesShort = g => g._pp.pko !== null ? g._pp.pko : gameMinors(g);
+function specialTeams(games) {
+  const sum = f => games.reduce((s, g) => s + f(g), 0);
+  const t = { ppg:sum(g => g._pp.ppg), ppo:sum(g => g._pp.ppo), ppga:sum(g => g._pp.ppga), pko:sum(timesShort),
+              shg:sum(g => g._pp.shg), shga:sum(g => g._pp.shga), est:games.some(g => g._pp.pko === null) };
+  t.ppPct = pct(t.ppg, t.ppo);
+  t.pkPct = t.pko ? Math.max(0, Math.round((1 - t.ppga / t.pko) * 100)) + "%" : "—";
+  return t;
+}
+
+function renderSplits() {
+  const done = D.team.filter(inType).filter(g => g._played);
+  const sum = (gs, f) => gs.reduce((s, g) => s + f(g), 0);
+  const of = (n, what) => n === done.length ? "" : ` ${what} based on ${n} of ${done.length} games.`;
+
+  // Special teams and shots (only games where those columns are filled in)
+  const ppG = done.filter(g => g._pp), st = specialTeams(ppG);
+  const sfG = done.filter(g => g._sf !== null), saG = done.filter(g => g._sa !== null);
+  const sf = sum(sfG, g => g._sf), sa = sum(saG, g => g._sa);
+  const gfS = sum(sfG, g => num(g.GF)), gaS = sum(saG, g => num(g.GA));
+  const tiles = [];
+  if (ppG.length) tiles.push(
+    ["Power Play %", st.ppPct], ["Power-Play Goals / Chances", `${st.ppg} / ${st.ppo}`],
+    ["Penalty Kill %" + (st.est ? " (est.)" : ""), st.pkPct], ["Power-Play Goals Against / Times Shorthanded", `${st.ppga} / ${st.pko}`],
+    ["Shorthanded Goals", st.shg], ["Shorthanded Goals Against", st.shga]);
+  if (sfG.length) tiles.push(["Shots / Game", (sf / sfG.length).toFixed(1)], ["Shooting %", pct(gfS, sf)]);
+  if (saG.length) tiles.push(["Shots Against / Game", (sa / saG.length).toFixed(1)], ["Team Save %", svFmt(sa ? (sa - gaS) / sa : null)]);
+  if (tiles.length) renderTiles($("sp-tiles"), tiles);
+  else $("sp-tiles").innerHTML = `<div class="card" style="grid-column:1/-1"><div class="msg">No power-play or shot data entered yet.</div></div>`;
+  $("sp-note").innerHTML = (st.est ? "Penalty Kill % is estimated for games without PKO (each Dawgs minor or major counts as a time shorthanded)." : "") +
+    of(ppG.length, "Power-play stats") + of(sfG.length, "Shot stats");
+
+  // Goals by period
+  const perG = done.filter(g => g._per), n = perG.length;
+  const otGames = perG.filter(g => g._per.f[3] || g._per.a[3] || /OT|SO/.test(g._suffix));
+  const prow = (label, i, gs) => {
+    const f = sum(gs, g => g._per.f[i]), a = sum(gs, g => g._per.a[i]);
+    return { P:label, GF:f, GA:a, DIFF:f - a, GFPG: gs.length ? f / gs.length : null, GAPG: gs.length ? a / gs.length : null };
+  };
+  const prows = n ? [prow("1st Period", 0, perG), prow("2nd Period", 1, perG), prow("3rd Period", 2, perG)] : [];
+  if (otGames.length) prows.push(prow("Overtime", 3, otGames));
+  table($("sp-period"), [
+    { k:"P", l:"Period" }, { k:"GF", l:"GF", n:true }, { k:"GA", l:"GA", n:true }, { k:"DIFF", l:"Diff", n:true, f:r => pm(r.DIFF) },
+    { k:"GFPG", l:"GF/GP", n:true, f:r => r.GFPG === null ? "—" : r.GFPG.toFixed(2) }, { k:"GAPG", l:"GA/GP", n:true, f:r => r.GAPG === null ? "—" : r.GAPG.toFixed(2) }
+  ], prows, { center:true, empty:"No period scores entered yet." });
+  $("sp-period-note").textContent = n ? `GF/GP and GA/GP = goals in that period per game${otGames.length ? " (overtime: per game that went to overtime)" : ""}.` + of(n, "Period stats") : "";
+
+  // Wins vs losses: what's different in the games we win
+  const resName = { W:"Wins", L:"Losses", T:"Ties", OTL:"OT / SO losses" };
+  const cmp = Object.entries(resName).map(([c, label]) => {
+    const gs = done.filter(g => g._code === c); if (!gs.length) return null;
+    const per = (list, f) => list.length ? sum(list, f) / list.length : null;
+    const sfL = gs.filter(g => g._sf !== null), saL = gs.filter(g => g._sa !== null), ppL = gs.filter(g => g._pp), t = specialTeams(ppL);
+    return { R:label, GP:gs.length, GFPG:per(gs, g => num(g.GF)), GAPG:per(gs, g => num(g.GA)), SFPG:per(sfL, g => g._sf), SAPG:per(saL, g => g._sa),
+             PIMPG:per(gs, gamePIM), PP:ppL.length && t.ppo ? t.ppg / t.ppo : null, PK:ppL.length && t.pko ? 1 - t.ppga / t.pko : null };
+  }).filter(Boolean);
+  const f2 = v => v === null ? "—" : v.toFixed(2), f1 = v => v === null ? "—" : v.toFixed(1), fp = v => v === null ? "—" : Math.round(v * 100) + "%";
+  const cmpCols = [
+    { k:"R", l:"Result" }, { k:"GP", l:"GP", n:true },
+    { k:"GFPG", l:"GF/GP", n:true, f:r => f2(r.GFPG) }, { k:"GAPG", l:"GA/GP", n:true, f:r => f2(r.GAPG) },
+    ...(sfG.length ? [{ k:"SFPG", l:"SF/GP", n:true, f:r => f1(r.SFPG) }] : []), ...(saG.length ? [{ k:"SAPG", l:"SA/GP", n:true, f:r => f1(r.SAPG) }] : []),
+    { k:"PIMPG", l:"PIM/GP", n:true, f:r => f2(r.PIMPG) },
+    ...(ppG.length ? [{ k:"PP", l:"PP%", n:true, f:r => fp(r.PP) }, { k:"PK", l:"PK%", n:true, f:r => fp(r.PK) }] : [])
+  ];
+
+  // Record splits
+  const lead = (g, k) => { if (!g._per) return null; const d = g._per.f.slice(0, k).reduce((s, x) => s + x, 0) - g._per.a.slice(0, k).reduce((s, x) => s + x, 0);
+    return d > 0 ? "Leading" : d < 0 ? "Trailing" : "Tied"; };
+  const margin = g => { const d = Math.abs(num(g.GF) - num(g.GA)); return d === 0 ? "Tied games" : d === 1 ? "1-goal games" : d === 2 ? "2-goal games" : d <= 4 ? "3–4 goal games" : "5+ goal games"; };
+  // Game of the day: counts every game on the schedule that day (so a 2-game day still counts if one isn't entered yet)
+  const dayGames = new Map(); D.team.filter(g => g._hasOpp).forEach(g => { const k = String(g.Date).trim(); if (!dayGames.has(k)) dayGames.set(k, []); dayGames.get(k).push(g); });
+  const ofDay = g => { const list = (dayGames.get(String(g.Date).trim()) || [g]).sort((a, b) => a._ts - b._ts);
+    return list.length < 2 ? "Only game that day" : list.indexOf(g) === 0 ? "1st game of the day" : "2nd game of the day"; };
+  const timeOfDay = g => { const m = String(g.Time || "").match(/(\d+):(\d+)\s*(AM|PM)/i); if (!m) return null;
+    const h = (+m[1] % 12) + (m[3].toUpperCase() === "PM" ? 12 : 0); return h < 12 ? "Morning (before noon)" : h < 17 ? "Afternoon (noon – 5 PM)" : "Evening (5 PM or later)"; };
+  const stateOf = g => { const st = CFG.outOfStateRinks[splitRink(g.Rink)[0]] || (String(g.Rink).match(/,\s*([A-Z]{2})\s*$/) || [])[1] || CFG.homeState;
+    return st === CFG.homeState ? "In state" : "Out of state"; };
+  const oppName = new Map(); done.forEach(g => { const k = normOpp(g.Opponent); if (!oppName.has(k)) oppName.set(k, g.Opponent); });
+  const byOpp = groupBy(done, g => oppName.get(normOpp(g.Opponent))).sort((a, b) => b.GP - a.GP || a.Split.localeCompare(b.Split));
+  const regular = done.filter(g => /regular/i.test(g.Type || ""));
+  const sections = [
+    ["By Game Type", "Type", typeFilter ? [] : groupBy(done, g => g.Type || null, CFG.typeOrder)],
+    ["By Tournament", "Tournament", groupBy(done.filter(g => /tournament/i.test(g.Type || "")), g => g._typeName || "Tournament")],
+    ["Game of the Day", "Game", groupBy(done, ofDay, ["1st game of the day", "2nd game of the day", "Only game that day"])],
+    ["Time of Day", "Start time", groupBy(done, timeOfDay, ["Morning (before noon)", "Afternoon (noon – 5 PM)", "Evening (5 PM or later)"])],
+    ["In State vs Out of State", "Location", groupBy(done, stateOf, ["In state", "Out of state"])],
+    ["Home vs Away (Regular Season)", "Games", groupBy(regular, g => /^h/i.test(g["Home/Away"] || "") ? "Home" : /^a/i.test(g["Home/Away"] || "") ? "Away" : null, ["Home", "Away"])],
+    ["Close Games", "Margin", groupBy(done, margin, ["1-goal games", "2-goal games", "3–4 goal games", "5+ goal games", "Tied games"])],
+    ["After 1 Period", "Score after 1st", groupBy(done, g => lead(g, 1), ["Leading", "Tied", "Trailing"])],
+    ["After 2 Periods", "Score after 2nd", groupBy(done, g => lead(g, 2), ["Leading", "Tied", "Trailing"])],
+    ["By Opponent", "Opponent", byOpp]
+  ].filter(s => s[2].length);
+  $("sp-tables").innerHTML = (cmp.length ? `<h2 class="sec">Wins vs Losses (Per Game)</h2><div class="card"><div class="tablewrap" id="sp-cmp"></div></div>` : "") +
+    sections.map((s, i) => `<h2 class="sec">${s[0]}</h2><div class="card"><div class="tablewrap" id="sp-t${i}"></div></div>`).join("");
+  if (cmp.length) table($("sp-cmp"), cmpCols, cmp, { center:true });
+  sections.forEach((s, i) => table($("sp-t" + i), splitCols(s[1]), s[2], { center:true }));
+  $("sp-key").innerHTML = "";
 }
 
 /* ----- Game Center -----
@@ -828,6 +1090,7 @@ function renderGameCenter() {
       <div class="gc-mid">${center}</div>
       <div class="gc-team"><div class="gc-badge${oppFiles.length ? "" : " init"}">${oppBadge}</div><div class="gc-name">${esc(opp)}</div></div>
     </div>
+    ${boxScore(g, opp)}
     <h2 class="sec">Head-to-Head vs ${esc(opp)}</h2>
     <div class="stats" id="gc-stats"></div>
     <h2 class="sec">${g._played ? "All Meetings" : "Previous Meetings"}</h2>
@@ -844,8 +1107,8 @@ function renderGameCenter() {
     ["Games Played", gp],
     ["Record (W-L-T-OTL)", `${won}-${cnt("L")}-${cnt("T")}-${cnt("OTL")}`],
     ["Win %", winPct(won, cnt("T"), gp)],
-    ["Goals For", gf], ["Goals Against", ga], ["Goal Diff", signed(gf - ga)],
-    ["Penalty Min", pimFmt(pimAll)]
+    ["Goals For", gf], ["Goals Against", ga], ["Goal Differential", signed(gf - ga)],
+    ["Penalty Minutes", pimFmt(pimAll)]
   ]);
   table($("gc-meet"), [
     { k:"_gm", l:"Game", n:true, mid:true, f:x => esc(x.Game) },
@@ -854,7 +1117,7 @@ function renderGameCenter() {
     { k:"Rink", l:"Rink" },
     { k:"GF", l:"Score", n:true, mid:true, f:x => `${esc(x.GF)} – ${esc(x.GA)}` },
     { k:"_code", l:"Result", mid:true, f:x => badge(x) },
-    { k:"Type", l:"Type" }
+    { k:"_typeName", l:"Type" }
   ], meet, { sort:"_ts", empty:`No previous games against ${esc(opp)}.` });
   table($("gc-sk"), skaterCols(), skRows(skIn),
     { sort:"PPG", then:"P", player:"Player", center:true, empty:noneFor("skater stats") });
@@ -874,6 +1137,37 @@ function renderGameCenter() {
     table($("gc-pen"), penaltyCols(), penaltyAgg(penRows),
       { sort:"PIM", pen:"Player", center:true, empty:noneFor("penalties") });
   }
+}
+
+// Finished games: goals by period (and shots), then power play and game-winning goal
+function boxScore(g, opp) {
+  if (!g._played) return "";
+  let html = "";
+  if (g._per) {
+    const p = g._per, ot = p.f[3] || p.a[3] || /OT|SO/.test(g._suffix), so = g._suffix.includes("SO");
+    const extra = (tot, arr) => num(tot) - arr.reduce((s, x) => s + x, 0);   // shootout winner (not in the periods)
+    const heads = ["", "1st", "2nd", "3rd", ...(ot ? ["OT"] : []), ...(so ? ["SO"] : []), "Final", ...(g._sf !== null && g._sa !== null ? ["Shots"] : [])];
+    const line = (name, arr, tot, shots) => [esc(name), ...arr.slice(0, 3), ...(ot ? [arr[3]] : []), ...(so ? [Math.max(0, extra(tot, arr))] : []),
+      `<b>${esc(tot)}</b>`, ...(g._sf !== null && g._sa !== null ? [shots] : [])];
+    const rows = [line(CFG.teamName, p.f, g.GF, g._sf), line(opp, p.a, g.GA, g._sa)];
+    html += `<div class="card box"><div class="tablewrap"><table><thead><tr>${heads.map((h, i) => `<th class="${i ? "mid" : ""}" style="cursor:default">${h}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "mid" : "txt"}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  }
+  const facts = [];
+  if (!g._per && g._sf !== null && g._sa !== null) facts.push(`Shots ${g._sf} – ${g._sa}`);
+  if (g._pp) {
+    facts.push(`Power play ${g._pp.ppg} for ${g._pp.ppo}`);
+    const sh = timesShort(g);
+    facts.push(sh ? `Penalty kill ${Math.max(0, sh - g._pp.ppga)} for ${sh}${g._pp.pko === null ? " (est.)" : ""}` : "Never shorthanded");
+    if (g._pp.shg) facts.push(`Shorthanded goals ${g._pp.shg}`);
+    if (g._pp.shga) facts.push(`Shorthanded goals against ${g._pp.shga}`);
+  }
+  if (filled(g.GWG)) {
+    const r = D.skaters.find(r => sameGame(r, g) && jnum(r.Jersey) === jnum(g.GWG));
+    facts.push(`Game-winning goal: ${r ? `<span class="click-name" data-player="${esc(r.Player)}">${esc(r.Player)}</span> (${esc(r.Jersey)})` : esc(g.GWG)}`);
+  }
+  if (!html && !facts.length) return "";
+  return `<h2 class="sec">Box Score</h2>${html}${facts.length ? `<p class="note after">${facts.join(" &middot; ")}</p>` : ""}`;
 }
 
 function openGameCenter(key) {
@@ -925,23 +1219,34 @@ function openPlayer(name, opp) {
   const srows = D.skaters.filter(r => r.Player === name && vs(r)).sort((a, b) => ts(a.Date) - ts(b.Date));
   const grows = D.goalies.filter(r => r.Goalie === name && vs(r)).sort((a, b) => ts(a.Date) - ts(b.Date));
   const jersey = ro?.Jersey || srows[0]?.Jersey || grows[0]?.Jersey || "";
-  let tiles = "", log = "";
+  let tiles = "", log = "", trend = "";
   if (srows.length) {
     const a = skaterAgg(srows)[0];
     tiles = mtile("GP", a.GP) + mtile("G", a.G) + mtile("A", a.A) + mtile("P", a.P) + mtile("+/-", signed(a.PM)) + mtile("P/GP", a.PPG.toFixed(2));
+    const games = n => n + (n === 1 ? " game" : " games");
+    trend = [
+      `Point streak: ${a.STREAK ? games(a.STREAK) : "none"} (longest ${games(a.BEST)})`,
+      `Multi-point games: ${a.MULTI}`,
+      HAS.gwg ? `Game-winning goals: ${a.GWG}` : ""
+    ].filter(Boolean).join(" &middot; ");
     log = miniTable(["Gm", "Date", "Opponent", "G", "A", "P", "+/-"],
       srows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), esc(r.G), esc(r.A), esc(r.P), pm(num(r[PM_KEY]))]));
   } else if (grows.length) {
     const a = goalieAgg(grows)[0];
     tiles = mtile("GP", a.GP) + mtile("Record", `${a.W}-${a.L}-${a.T}-${a.OTL}`) +
-      mtile("Win %", a.WPCT === null ? "—" : Math.round(a.WPCT * 100) + "%") + mtile("GA", a.GA) + mtile("GAA", a.GAA === null ? "—" : a.GAA.toFixed(2)) + mtile("SO", a.SO);
-    log = miniTable(["Gm", "Date", "Opponent", "Dec.", "GA", "MIN"],
-      grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), decision(r) || "—", esc(r.GA), esc(r.Minutes)]), false, [3]);
+      mtile("Win %", a.WPCT === null ? "—" : Math.round(a.WPCT * 100) + "%") + mtile("GA", a.GA) + mtile("GAA", a.GAA === null ? "—" : a.GAA.toFixed(2)) +
+      (HAS.sa ? mtile("SV%", svFmt(a.SVP)) : "") + mtile("SO", a.SO);
+    const sv = r => filled(r.SA) && num(r.SA) ? svFmt((num(r.SA) - num(r.GA)) / num(r.SA)) : "—";
+    log = HAS.sa
+      ? miniTable(["Gm", "Date", "Opponent", "Dec.", "GA", "SA", "SV%"],
+          grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), decision(r) || "—", esc(r.GA), esc(r.SA) || "—", sv(r)]), false, [3, 4, 5, 6])
+      : miniTable(["Gm", "Date", "Opponent", "Dec.", "GA", "MIN"],
+          grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), decision(r) || "—", esc(r.GA), esc(r.Minutes)]), false, [3]);
   } else tiles = `<div class="msg" style="width:100%">No game stats${opp ? " against " + esc(opp) : ""}.</div>`;
   const pens = D.penalties.filter(r => r.Player === name && vs(r));
   const penLine = pens.length ? `<p class="note" style="padding:8px 20px 0">Penalties: ${pens.length} for ${pimFmt(pens.reduce((s, r) => s + num(r.PIM), 0))} PIM</p>` : "";
   $("mbody").innerHTML = `<div class="mhead"><div class="mj">${playerSub(ro, jersey)}</div><h2>${esc(name)}</h2>${opp ? `<div class="mvs">vs ${esc(opp)}</div>` : ""}</div>
-    <div class="mtiles">${tiles}</div>${penLine}<div class="mlog">${log}</div>`;
+    <div class="mtiles">${tiles}</div>${trend ? `<p class="note" style="padding:8px 20px 0">${trend}</p>` : ""}${penLine}<div class="mlog">${log}</div>`;
   $("modal").classList.add("open");
 }
 
@@ -981,7 +1286,7 @@ function openShutouts() {
   const gfTotal = games.reduce((s, g) => s + num(g.GF), 0);
   const tiles = mtile("Shutouts", games.length) + mtile("Games Played", all.length) +
     mtile("Shutout %", all.length ? Math.round(games.length / all.length * 100) + "%" : "—") +
-    mtile("GF / Game", games.length ? (gfTotal / games.length).toFixed(2) : "—");
+    mtile("Goals For / Game", games.length ? (gfTotal / games.length).toFixed(2) : "—");
   $("mbody").innerHTML = `<div class="mhead"><div class="mj">${esc(typeFilter || "All games")} &bull; ${esc(CFG.season)}</div><h2>Team Shutouts</h2></div>
     <div class="mtiles">${tiles}</div>
     <div class="mlog">${games.length
@@ -991,6 +1296,64 @@ function openShutouts() {
   $("modal").classList.add("open");
 }
 const closeModal = () => $("modal").classList.remove("open");
+
+/* Stat definitions popup: what each stat on the current page means and how it's calculated */
+const DEF = {
+  record: ["Record (W-L-T-OTL)", "Wins - Losses - Ties - Overtime and shootout losses."],
+  winpct: ["Win %", "(Wins + ½ × Ties) ÷ Games Played. A tie counts as half a win; an overtime or shootout loss counts as a loss. Goalies: divided by their decisions instead of games played."],
+  gd:     ["Goal Differential", "Goals For − Goals Against."],
+  pim:    ["Penalty Minutes (PIM)", "Minor 1.5 · Major 4 · Misconduct 8. Team totals include bench minors."],
+  gp:     ["GP", "Games Played."],
+  g:      ["G / A / P", "Goals / Assists / Points. Points = Goals + Assists."],
+  pm:     ["+/- (Plus/Minus)", "+1 for being on the ice for an even-strength or shorthanded goal for, −1 for one against. Power-play goals and penalty shots don't count."],
+  gwg:    ["GWG (Game-Winning Goal)", "The goal that put the Dawgs ahead for good in a win. In a 5-2 win, the 3rd Dawgs goal."],
+  ppg:    ["P/GP (Points Per Game)", "Points ÷ Games Played."],
+  streak: ["Active Point Streak", "Games in a row, counting only games the player played, with at least one point. Ends with any game without a point."],
+  multi:  ["Multi-Point Game", "A game with 2 or more points."],
+  dec:    ["Decision (Dec.)", "The goalie credited with the team's W, L, T or OTL. Each game has one decision; the other goalie gets no decision (—)."],
+  ga:     ["GA / MIN", "Goals Against / Minutes Played."],
+  gaa:    ["GAA (Goals-Against Average)", `Goals Against × ${CFG.gameMinutes} ÷ Minutes Played: goals allowed per full ${CFG.gameMinutes}-minute game (three 13-minute periods).`],
+  sa:     ["SA (Shots Against)", "Shots on goal faced."],
+  sv:     ["SV% (Save Percentage)", "(Shots Against − Goals Against) ÷ Shots Against. .900 means 9 of every 10 shots stopped. Only games with shots entered count."],
+  so:     ["SO (Shutout)", "Goalie: played the whole game and allowed 0 goals. Team: any game with 0 goals against (shared between goalies counts for the team only)."],
+  pp:     ["Power Play % (PP%)", "Power-play goals ÷ power-play chances (times the other team took a penalty that put the Dawgs a player up)."],
+  pk:     ["Penalty Kill % (PK%)", "1 − (Power-play goals against ÷ times shorthanded). 80% means the other team scored on 1 of every 5 power plays."],
+  sh:     ["Shorthanded Goals", "Goals scored by the team that's a player down. For: the Dawgs scored while killing a penalty. Against: the other team scored while the Dawgs were on the power play."],
+  shots:  ["Shots / Game", "Shots on goal per game. A shot that misses the net or is blocked doesn't count."],
+  shpct:  ["Shooting %", "Goals ÷ Shots on goal. 20% means 1 of every 5 shots goes in."],
+  tsv:    ["Team Save %", "(Shots Against − Goals Against) ÷ Shots Against for both goalies together."],
+  pergp:  ["GF/GP, GA/GP, SF/GP, SA/GP, PIM/GP", "Goals for, goals against, shots for, shots against and penalty minutes per game."],
+  diff:   ["Diff", "Goal differential: GF − GA."],
+  close:  ["Close Games", "Grouped by final margin (the difference in the final score): 1 goal, 2 goals, 3–4 goals or 5+ goals. Overtime and shootout games count as 1-goal games."],
+  ofday:  ["Game of the Day", "On days with two games, whether it was the 1st or 2nd game that day."],
+  tod:    ["Time of Day", "By start time: morning (before noon), afternoon (noon to 5 PM), evening (5 PM or later)."],
+  state:  ["In State vs Out of State", "Games at Utah rinks vs out-of-state tournaments."],
+  ha:     ["Home vs Away", "Regular-season games only. At tournaments, home/away mostly decides jersey color."],
+  after:  ["After 1 / 2 Periods", "The team's record when leading, tied or trailing after the 1st or 2nd period."],
+  results:["Results", "W win · L loss · T tie · OTL overtime or shootout loss (orange). (OT) or (SO) after a W means it was won in overtime or a shootout."],
+  type:   ["Type", "Seeding, Regular Season, or the tournament's name for tournament games."],
+  h2h:    ["Head-to-Head", "Every game against this opponent this season."],
+  box:    ["Box Score", "Goals by period and shots on goal. Power play 1 for 4 = 1 goal on 4 chances. Penalty kill 5 for 6 = killed 5 of 6 penalties."],
+  pos:    ["Position", "F forward · D defense · G goalie."],
+  hand:   ["Shoots / Catches", "Skaters: L or R. Goalies: Regular (catches with the left hand) or Full Right."]
+};
+const DEF_PAGES = {
+  home:       ["Home", [["Team", ["record", "winpct", "gd", "pim", "so"]], ["Recent Form", [["Streak", "Results in a row from the latest game: W2 = 2 wins in a row, L1 = lost the last game."], ["Last 5", "Record (W-L-T-OTL) in the 5 most recent games."]]],
+                         ["Skater Leaders", ["g", "ppg", "pm", "gwg", "streak"]], ["Goalie Leaders", ["gaa", "sv"]]]],
+  schedule:   ["Schedule", [["Schedule", ["results", "type"]]]],
+  stats:      ["Stats", [["Skaters", ["gp", "g", "pm", "gwg", "ppg"]], ["Goalies", ["record", "winpct", "dec", "ga", "gaa", "sa", "sv", "so"]], ["Penalties", ["pim"]]]],
+  splits:     ["Splits", [["Special Teams & Shots", ["pp", "pk", "sh", "shots", "shpct", "tsv"]],
+                          ["Tables", ["pergp", "diff", "record", "winpct", "close", "ofday", "tod", "state", "ha", "after"]]]],
+  roster:     ["Roster", [["Players", ["pos", "hand", "gp", "g"]], ["Player Cards", ["streak", "multi", "gwg"]]]],
+  gamecenter: ["Game Center", [["Game Center", ["box", "h2h", "record", "winpct"]], ["Tables", ["gp", "g", "pm", "gwg", "ppg", "dec", "gaa", "sv", "pim"]]]]
+};
+function openDefs() {
+  const id = (document.querySelector(".view.active")?.id || "view-home").replace("view-", "");
+  const [name, groups] = DEF_PAGES[id] || DEF_PAGES.home;
+  $("mbody").innerHTML = `<div class="mhead"><div class="mj">${esc(name)}</div><h2>Stat Definitions</h2></div><div class="defs">${groups.map(([title, items]) =>
+    `<h3>${esc(title)}</h3>${items.map(it => { const [t, d] = typeof it === "string" ? DEF[it] : it; return `<div class="d"><b>${esc(t)}</b><span>${esc(d)}</span></div>`; }).join("")}`).join("")}</div>`;
+  $("modal").classList.add("open");
+}
 
 /* =====================================================
    NAV / INIT
@@ -1005,7 +1368,7 @@ function showView(id, hash) {
 }
 
 function buildNav() {
-  const items = [["home","Home"],["schedule","Schedule"],["stats","Stats"],["roster","Roster"]];
+  const items = [["home","Home"],["schedule","Schedule"],["stats","Stats"],["splits","Splits"],["roster","Roster"]];
   $("nav").innerHTML = items.map(([id, l]) => `<button data-v="${id}">${l}</button>`).join("");
   document.querySelectorAll("nav button").forEach(b => b.onclick = () => { currentGC = null; showView(b.dataset.v); });
   const h = location.hash;
@@ -1021,7 +1384,7 @@ function buildNav() {
 
 function renderAll() {
   POS = new Map(D.roster.filter(p => !isBench(p)).map(p => [p.Player, p.Position || ""]));
-  renderTicker(); renderHome(); renderSchedule(); renderSkaters(); renderGoalies(); renderPenalties(); renderRoster();
+  renderTicker(); renderHome(); renderSchedule(); renderSkaters(); renderGoalies(); renderPenalties(); renderSplits(); renderRoster();
   if (currentGC) renderGameCenter();
 }
 
@@ -1072,6 +1435,8 @@ document.addEventListener("click", e => {
   if (gm && gm.dataset.game) { closeModal(); openGameCenter(gm.dataset.game); return; }
   const op = e.target.closest("[data-open]");
   if (op && op.dataset.open === "shutouts") { openShutouts(); return; }
+  const ld = e.target.closest("[data-leaders]");
+  if (ld) { openLeaders(ld.dataset.leaders); return; }
   // Cards opened from inside the Game Center only show that opponent
   const inGC = e.target.closest("#view-gamecenter");
   const gcOpp = inGC ? D.team.find(x => x._key === currentGC)?.Opponent : null;
@@ -1083,6 +1448,7 @@ document.addEventListener("click", e => {
 $("ticker-scroll").addEventListener("scroll", tickerFade, { passive:true });
 window.addEventListener("resize", tickerFade);
 $("mclose").onclick = closeModal;
+$("info-btn").onclick = openDefs;
 $("modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
