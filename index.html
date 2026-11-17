@@ -1073,10 +1073,14 @@ function renderGameCenter() {
 
   const when = esc(longDate(g.Date)) + (!isTBD(g.Time) ? ` &bull; ${esc(g.Time)}` : "");
   const where = [g.Game && !/^t$/i.test(String(g.Game).trim()) ? "Game " + g.Game : "", g.Rink, g["Home/Away"]].filter(Boolean).map(esc).join(" &bull; ");
+  // Game type under the rink line: "Seeding", "Regular Season", or "Tournament | Vegas Winter Classic"
+  const tname = g._typeName && g._typeName !== g.Type ? g._typeName : "";
+  const kind = esc([g.Type, tname].filter(Boolean).join(" | "));
+  const meta = `${when}<br>${where}${kind ? `<br>${kind}` : ""}`;
   const center = g._played
     ? `<div class="gc-status">FINAL${esc(g._suffix)}</div><div class="gc-score">${esc(g.GF)} – ${esc(g.GA)}</div>
-       <div class="gc-meta">${when}<br>${where}</div><div style="margin-top:8px">${badge(g)}</div>`
-    : `<div class="gc-status">UPCOMING</div><div class="gc-score">VS</div><div class="gc-meta">${when}<br>${where}</div>`;
+       <div class="gc-meta">${meta}</div><div style="margin-top:8px">${badge(g)}</div>`
+    : `<div class="gc-status">UPCOMING</div><div class="gc-score">VS</div><div class="gc-meta">${meta}</div>`;
 
   // Opponent badge: their logo file from CFG.teamLogos, or their initials if there's no file
   const oppInit = esc(initials(opp)), oppFiles = teamLogoFiles(opp);
