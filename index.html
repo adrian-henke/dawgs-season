@@ -19,7 +19,18 @@
          background:linear-gradient(180deg,#d3e0f5 0px,#e7edf7 380px); }
 
   /* Ticker */
-  .ticker { background:#000; color:#fff; overflow-x:auto; white-space:nowrap; border-bottom:1px solid #111c33; scrollbar-width:thin; }
+  .ticker { background:#000; color:#fff; overflow-x:auto; white-space:nowrap; border-bottom:1px solid #111c33; }
+  /* Visible blue scroll bar so people can tell the game bar scrolls (Chrome, Edge, Safari) */
+  .ticker::-webkit-scrollbar { height:10px; }
+  .ticker::-webkit-scrollbar-track { background:#1a2336; }
+  .ticker::-webkit-scrollbar-thumb { background:#2260c4; border-radius:6px; border:2px solid #1a2336; }
+  .ticker::-webkit-scrollbar-thumb:hover { background:#6ea8ff; }
+  @supports (-moz-appearance:none) { .ticker { scrollbar-width:thin; scrollbar-color:#2260c4 #1a2336; } }   /* Firefox */
+  /* Fade on the right edge hints there are more games; hidden once scrolled to the end */
+  .ticker-wrap { position:relative; }
+  .ticker-wrap::after { content:""; position:absolute; top:0; right:0; bottom:10px; width:72px; pointer-events:none;
+                        background:linear-gradient(to right, rgba(0,0,0,0), #000); transition:opacity .2s; }
+  .ticker-wrap.at-end::after { opacity:0; }
   .ticker-inner { display:inline-flex; padding:0 8px; }
   .tgame { display:inline-block; min-width:158px; padding:10px 16px; border-right:1px solid #111c33; font-size:.78rem; vertical-align:top; }
   .tgame .tdate { color:#7f93b8; font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
@@ -186,7 +197,7 @@ table.even.so th:nth-child(4){width:12%}table.even.so th:nth-child(5){width:13%}
 </head>
 <body>
 
-<div class="ticker"><div class="ticker-inner" id="ticker"></div></div>
+<div class="ticker-wrap" id="ticker-wrap"><div class="ticker" id="ticker-scroll"><div class="ticker-inner" id="ticker"></div></div></div>
 
 <header>
   <div class="top">
@@ -569,6 +580,11 @@ function applySearch() {
 /* =====================================================
    RENDER
    ===================================================== */
+// Hide the right-edge fade when there's nothing more to scroll to
+function tickerFade() {
+  const t = $("ticker-scroll");
+  $("ticker-wrap").classList.toggle("at-end", t.scrollLeft + t.clientWidth >= t.scrollWidth - 4);
+}
 function renderTicker() {
   const played = D.team.filter(g => g._played).slice(-CFG.tickerPast);
   const upcoming = upcomingGames().slice(0, CFG.tickerNext);
@@ -600,6 +616,7 @@ function renderTicker() {
 
   $("ticker").innerHTML = res + up || `<div class="tgame"><div class="tdate">No games</div></div>`;
   // No auto-scroll: the bar opens at the far left (oldest of the recent games) and keeps its position on refresh
+  tickerFade();
 }
 
 /* Leader card: ties share a rank (T-1, T-1, T-1, then 4), ties ordered by jersey number */
@@ -991,6 +1008,8 @@ document.addEventListener("click", e => {
   const p = e.target.closest("[data-player]");
   if (p && p.dataset.player) openPlayer(p.dataset.player, gcOpp);
 });
+$("ticker-scroll").addEventListener("scroll", tickerFade, { passive:true });
+window.addEventListener("resize", tickerFade);
 $("mclose").onclick = closeModal;
 $("modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
