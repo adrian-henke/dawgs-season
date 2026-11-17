@@ -166,10 +166,26 @@
   .mhead { background:linear-gradient(135deg,#000 0%,var(--blue) 100%); color:#fff; padding:20px; }
   .mhead .mj { font-size:.9rem; color:#a9c8ff; font-weight:700; }
   .mhead h2 { font-size:1.5rem; margin-top:2px; }
-  .mtiles { display:flex; flex-wrap:wrap; gap:8px; padding:16px 20px 4px; }
-  .mtile { flex:1; min-width:70px; background:var(--card-2); border:1px solid var(--line); border-radius:8px; padding:10px; text-align:center; }
-  .mtile .l { font-size:.66rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); white-space:nowrap; }
-  .mtile .v { font-size:1.3rem; font-weight:800; }
+  /* Popup stat boxes: as many per row as fit (at least ~90px each), wrapping to more rows on phones.
+     Titles can wrap onto two lines; values line up at the bottom of each row. */
+  .mtiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:8px; padding:16px 20px 4px; }
+  .mtiles .msg { grid-column:1 / -1; }
+  .mtile { min-width:0; display:flex; flex-direction:column; justify-content:space-between; gap:4px;
+           background:var(--card-2); border:1px solid var(--line); border-radius:8px; padding:10px 6px; text-align:center; }
+  .mtile .l { font-size:.66rem; line-height:1.25; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); overflow-wrap:break-word; }
+  .mtile .v { font-size:1.3rem; font-weight:800; white-space:nowrap; }
+  @media (max-width:520px) {
+    .mtiles { padding:14px 14px 4px; grid-template-columns:repeat(3, 1fr); }
+    .mtiles:has(> .mtile:nth-child(4):last-child) { grid-template-columns:repeat(2, 1fr); }   /* 4 boxes: 2 x 2 */
+    /* Popup game lists fit the phone: no fixed minimum width, smaller text, long names wrap */
+    .mlog table, .mlog table.even { min-width:0; table-layout:auto; font-size:.76rem; }
+    .mlog th { font-size:.6rem; letter-spacing:.04em; padding:8px 4px; white-space:normal; }
+    .mlog td { padding:8px 4px; white-space:normal; overflow-wrap:break-word; }
+    .mlog td:first-child, .mlog th:first-child { padding-left:10px; }
+    .mlog td:last-child, .mlog th:last-child { padding-right:10px; }
+    .mlog .badge { min-width:0; padding:2px 5px; }
+    .mlog td:nth-child(2) { white-space:nowrap; }   /* keep dates like "Sep 25" on one line */
+  }
   .mlog { padding:8px 0 4px; }
 
   footer { background:#000; color:#8fa2c6; border-top:3px solid var(--blue); text-align:center; font-size:.75rem; padding:22px 12px 26px; margin-top:32px; }
