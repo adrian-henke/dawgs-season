@@ -820,9 +820,11 @@ function renderRoster() {
 }
 
 /* ----- Player card and penalty card (shown in the pop-up) ----- */
-function miniTable(headers, rows, even) {
-  return `<div class="tablewrap"><table${even ? ' class="even"' : ""}><thead><tr>${headers.map(h => `<th style="cursor:default">${h}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+// mid: column indexes to center, e.g. [3]
+function miniTable(headers, rows, even, mid = []) {
+  const cls = i => mid.includes(i) ? ' class="mid"' : "";
+  return `<div class="tablewrap"><table${even ? ' class="even"' : ""}><thead><tr>${headers.map((h, i) => `<th${cls(i)} style="cursor:default">${h}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${cls(i)}>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 const mtile = (l, v) => `<div class="mtile"><div class="l">${l}</div><div class="v">${v}</div></div>`;
 
@@ -840,9 +842,10 @@ function openPlayer(name, opp) {
       srows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), esc(r.G), esc(r.A), esc(r.P), pm(num(r[PM_KEY]))]));
   } else if (grows.length) {
     const a = goalieAgg(grows)[0];
-    tiles = mtile("GP", a.GP) + mtile("W", a.W) + mtile("L", a.L) + mtile("GA", a.GA) + mtile("GAA", a.GAA === null ? "—" : a.GAA.toFixed(2)) + mtile("SO", a.SO);
+    tiles = mtile("GP", a.GP) + mtile("Record", `${a.W}-${a.L}-${a.T}-${a.OTL}`) +
+      mtile("Win %", a.WPCT === null ? "—" : Math.round(a.WPCT * 100) + "%") + mtile("GA", a.GA) + mtile("GAA", a.GAA === null ? "—" : a.GAA.toFixed(2)) + mtile("SO", a.SO);
     log = miniTable(["Gm", "Date", "Opponent", "Dec.", "GA", "MIN"],
-      grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), decision(r) || "—", esc(r.GA), esc(r.Minutes)]));
+      grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), decision(r) || "—", esc(r.GA), esc(r.Minutes)]), false, [3]);
   } else tiles = `<div class="msg" style="width:100%">No game stats${opp ? " against " + esc(opp) : ""}.</div>`;
   const pens = D.penalties.filter(r => r.Player === name && vs(r));
   const penLine = pens.length ? `<p class="note" style="padding:8px 20px 0">Penalties: ${pens.length} for ${pimFmt(pens.reduce((s, r) => s + num(r.PIM), 0))} PIM</p>` : "";
@@ -888,8 +891,7 @@ function openShutouts() {
   const tiles = mtile("Shutouts", games.length) + mtile("Games Played", all.length) +
     mtile("Shutout %", all.length ? Math.round(games.length / all.length * 100) + "%" : "—") +
     mtile("GF / Game", games.length ? (gfTotal / games.length).toFixed(2) : "—");
-  $("mbody").innerHTML = `<div class="mhead"><div class="mj">${esc(typeFilter || "All games")} &bull; ${esc(CFG.season)}</div><h2>Team Shutouts</h2>
-    <div class="mvs">Games with 0 goals against</div></div>
+  $("mbody").innerHTML = `<div class="mhead"><div class="mj">${esc(typeFilter || "All games")} &bull; ${esc(CFG.season)}</div><h2>Team Shutouts</h2></div>
     <div class="mtiles">${tiles}</div>
     <div class="mlog">${games.length
       ? miniTable(["Gm", "Date", "Opponent", "Score", "Result", "In Net"],
@@ -954,7 +956,7 @@ async function loadAll() {
     const k = pendingGC; pendingGC = null;
     if (D.team.some(g => g._key === k)) openGameCenter(k);
   }
-  $("footer").textContent = `Unofficial team stats site • Data from Google Sheets • Updated ${new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" })}`;
+  $("footer").textContent = `Unofficial team stats site • Updated ${new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" })}`;
 }
 
 /* Logo (falls back to the "UD" circle if the image isn't found) + favicon */
