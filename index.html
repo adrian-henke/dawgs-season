@@ -71,6 +71,9 @@
           border-radius:12px; padding:16px 14px; box-shadow:0 4px 14px rgba(24,75,154,.28); }
   .stat .lbl { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.78); white-space:nowrap; }
   .stat .val { font-size:1.75rem; font-weight:800; margin-top:6px; white-space:nowrap; }
+  .stat.click { cursor:pointer; transition:transform .12s, box-shadow .12s; }
+  .stat.click:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(24,75,154,.38); }
+  .stat.click .lbl::after { content:" ›"; }
 
   /* Leaders (every row uses the same font sizes) */
   .leaders { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; }
@@ -176,6 +179,9 @@ table.even{min-width:680px}
 #gc-pen th:not(:only-child),#tbl-penalties th{width:20%}
 table.even th{width:16.66%}
 table.even th:nth-child(1){width:9%}table.even th:nth-child(2){width:14%}table.even th:nth-child(3){width:27%}table.even th:nth-child(4){width:27%}table.even th:nth-child(5){width:13%}table.even th:nth-child(6){width:10%}
+/* Shutouts popup: wider Opponent and In Net columns */
+table.even.so th:nth-child(1){width:8%}table.even.so th:nth-child(2){width:12%}table.even.so th:nth-child(3){width:34%}
+table.even.so th:nth-child(4){width:12%}table.even.so th:nth-child(5){width:13%}table.even.so th:nth-child(6){width:21%}
 </style>
 </head>
 <body>
@@ -318,6 +324,8 @@ const decision = r => {
   }
   return bool(r.W) ? "W" : bool(r.L) ? "L" : bool(r.T) ? "T" : bool(r.OT) ? "OTL" : "";
 };
+// Win % counts a tie as half a win: (W + 0.5 x T) / games
+const winPct = (w, t, games) => games ? Math.round(((w + 0.5 * t) / games) * 100) + "%" : "—";
 const signed = n => n > 0 ? "+" + n : String(n);
 const pm = n => `<span class="${n > 0 ? "pos" : n < 0 ? "neg" : ""}">${signed(n)}</span>`;
 const pimFmt = v => +Number(v).toFixed(1);
@@ -432,7 +440,8 @@ function table(el, cols, rows, o = {}) {
 }
 
 const renderTiles = (el, tiles) => {
-  el.innerHTML = tiles.map(([a, b]) => `<div class="stat"><div class="lbl">${a}</div><div class="val">${b}</div></div>`).join("");
+  // Optional third item makes the tile clickable, e.g. ["Shutouts", 2, 'data-open="shutouts"']
+  el.innerHTML = tiles.map(([a, b, attrs]) => `<div class="stat${attrs ? " click" : ""}"${attrs ? " " + attrs : ""}><div class="lbl">${a}</div><div class="val">${b}</div></div>`).join("");
 };
 
 /* =====================================================
@@ -498,10 +507,13 @@ function goalieAgg(rows) {
     const n = r.Goalie; if (!n) return;
     let a = m.get(n); if (!a) { a = { Player:n, Jersey:r.Jersey, GP:0, W:0, L:0, T:0, OTL:0, GA:0, MIN:0, SO:0 }; m.set(n, a); }
     a.GP++; const dc = decision(r); if (dc) a[dc]++;
-    a.GA += num(r.GA); a.MIN += num(r.Minutes); a.SO += bool(r.Shutout) ? 1 : 0;
+    a.GA += num(r.GA); a.MIN += num(r.Minutes);
+    // Shutout only for a goalie who played the whole game and allowed 0 (split-game zeros are team shutouts)
+    if (num(r.Minutes) >= CFG.gameMinutes && r.GA !== "" && num(r.GA) === 0) a.SO++;
     a.Jersey = r.Jersey || a.Jersey;
   });
-  return [...m.values()].map(a => ({ ...a, JN: num(a.Jersey), GAA: a.MIN > 0 ? +(a.GA * CFG.gameMinutes / a.MIN).toFixed(2) : null, MIN: +a.MIN.toFixed(1) }));
+  return [...m.values()].map(a => ({ ...a, JN: num(a.Jersey), GAA: a.MIN > 0 ? +(a.GA * CFG.gameMinutes / a.MIN).toFixed(2) : null, MIN: +a.MIN.toFixed(1),
+    DEC: a.W + a.L + a.T + a.OTL, WPCT: (a.W + a.L + a.T + a.OTL) ? (a.W + 0.5 * a.T) / (a.W + a.L + a.T + a.OTL) : null }));
 }
 
 function penaltyAgg(rows) {
@@ -528,6 +540,7 @@ const skaterCols = () => [
 const goalieCols = () => [
   { k:"Player", l:"Goalie" }, { k:"JN", l:"Jersey", n:true, f:r => esc(r.Jersey) }, { k:"GP", l:"GP", n:true },
   { k:"W", l:"W", n:true }, { k:"L", l:"L", n:true }, { k:"T", l:"T", n:true }, { k:"OTL", l:"OTL", n:true },
+  { k:"WPCT", l:"Win %", n:true, f:r => r.WPCT === null ? "—" : Math.round(r.WPCT * 100) + "%" },
   { k:"GA", l:"GA", n:true }, { k:"MIN", l:"MIN", n:true },
   { k:"GAA", l:"GAA", n:true, f:r => r.GAA === null ? "—" : `<b>${r.GAA.toFixed(2)}</b>` },
   { k:"SO", l:"SO", n:true }
@@ -612,9 +625,10 @@ function renderHome() {
   const pims = D.penalties.filter(inType).reduce((s, r) => s + num(r.PIM), 0);
   renderTiles($("stats"), [
     ["Record (W-L-T-OTL)", `${w}-${l}-${t}-${otl}`], ["Games Played", gp],
-    ["Win %", gp ? Math.round((w / gp) * 100) + "%" : "—"],
+    ["Win %", winPct(w, t, gp)],
     ["Goals For", gf], ["Goals Against", ga], ["Goal Diff", signed(gf - ga)],
     ["GF / Game", gp ? (gf / gp).toFixed(2) : "—"], ["GA / Game", gp ? (ga / gp).toFixed(2) : "—"],
+    ["Shutouts", done.filter(isShutout).length, 'data-open="shutouts" title="See shutout games"'],
     ["Penalty Min", pimFmt(pims)]
   ]);
 
@@ -738,7 +752,7 @@ function renderGameCenter() {
   renderTiles($("gc-stats"), [
     ["Games Played", gp],
     ["Record (W-L-T-OTL)", `${won}-${cnt("L")}-${cnt("T")}-${cnt("OTL")}`],
-    ["Win %", gp ? Math.round((won / gp) * 100) + "%" : "—"],
+    ["Win %", winPct(won, cnt("T"), gp)],
     ["Goals For", gf], ["Goals Against", ga], ["Goal Diff", signed(gf - ga)],
     ["Penalty Min", pimFmt(pimAll)]
   ]);
@@ -861,6 +875,28 @@ function openPenaltyCard(name, opp) {
       : `<div class="msg">No penalties recorded${opp ? " against " + esc(opp) : ""}.</div>`}</div>`;
   $("modal").classList.add("open");
 }
+// Team shutout: a played game with 0 goals against
+const isShutout = g => g._played && g.GA !== "" && num(g.GA) === 0;
+
+// Shutouts popup (Home page tile), same layout as the penalty card: tiles, then a game list with who was in net
+function openShutouts() {
+  const all = D.team.filter(inType).filter(g => g._played), games = all.filter(isShutout).reverse();
+  const inNet = g => D.goalies
+    .filter(r => String(r.Game).trim() === String(g.Game).trim() && normOpp(r.Opponent) === normOpp(g.Opponent))
+    .map(r => esc(String(r.Goalie).trim().split(/\s+/).pop())).join("<br>") || "—";   // last names keep the popup narrow
+  const gfTotal = games.reduce((s, g) => s + num(g.GF), 0);
+  const tiles = mtile("Shutouts", games.length) + mtile("Games Played", all.length) +
+    mtile("Shutout %", all.length ? Math.round(games.length / all.length * 100) + "%" : "—") +
+    mtile("GF / Game", games.length ? (gfTotal / games.length).toFixed(2) : "—");
+  $("mbody").innerHTML = `<div class="mhead"><div class="mj">${esc(typeFilter || "All games")} &bull; ${esc(CFG.season)}</div><h2>Team Shutouts</h2>
+    <div class="mvs">Games with 0 goals against</div></div>
+    <div class="mtiles">${tiles}</div>
+    <div class="mlog">${games.length
+      ? miniTable(["Gm", "Date", "Opponent", "Score", "Result", "In Net"],
+          games.map(g => [esc(g.Game), esc(shortDate(g.Date)), vs(g), `${esc(g.GF)} – ${esc(g.GA)}`, badge(g), inNet(g)]), true).replace('class="even"', 'class="even so"')
+      : `<div class="msg">No shutouts yet.</div>`}</div>`;
+  $("modal").classList.add("open");
+}
 const closeModal = () => $("modal").classList.remove("open");
 
 /* =====================================================
@@ -938,7 +974,9 @@ document.addEventListener("click", e => {
   const j = e.target.closest("[data-jump]");
   if (j) { e.preventDefault(); $(j.dataset.jump).scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   const gm = e.target.closest("[data-game]");
-  if (gm && gm.dataset.game) { openGameCenter(gm.dataset.game); return; }
+  if (gm && gm.dataset.game) { closeModal(); openGameCenter(gm.dataset.game); return; }
+  const op = e.target.closest("[data-open]");
+  if (op && op.dataset.open === "shutouts") { openShutouts(); return; }
   // Cards opened from inside the Game Center only show that opponent
   const inGC = e.target.closest("#view-gamecenter");
   const gcOpp = inGC ? D.team.find(x => x._key === currentGC)?.Opponent : null;
