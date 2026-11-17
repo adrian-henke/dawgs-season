@@ -20,12 +20,12 @@
 
   /* Ticker */
   .ticker { background:#000; color:#fff; overflow-x:auto; white-space:nowrap; border-bottom:1px solid #111c33; }
-  /* Visible blue scroll bar so people can tell the game bar scrolls (Chrome, Edge, Safari) */
+  /* Visible steel-blue scroll bar (full blue on hover) so people can tell the game bar scrolls (Chrome, Edge, Safari) */
   .ticker::-webkit-scrollbar { height:10px; }
   .ticker::-webkit-scrollbar-track { background:#1a2336; }
-  .ticker::-webkit-scrollbar-thumb { background:#2260c4; border-radius:6px; border:2px solid #1a2336; }
-  .ticker::-webkit-scrollbar-thumb:hover { background:#6ea8ff; }
-  @supports (-moz-appearance:none) { .ticker { scrollbar-width:thin; scrollbar-color:#2260c4 #1a2336; } }   /* Firefox */
+  .ticker::-webkit-scrollbar-thumb { background:#3b5b8c; border-radius:6px; border:2px solid #1a2336; }
+  .ticker::-webkit-scrollbar-thumb:hover { background:#2260c4; }
+  @supports (-moz-appearance:none) { .ticker { scrollbar-width:thin; scrollbar-color:#3b5b8c #1a2336; } }   /* Firefox */
   /* Fade on the right edge hints there are more games; hidden once scrolled to the end */
   .ticker-wrap { position:relative; }
   .ticker-wrap::after { content:""; position:absolute; top:0; right:0; bottom:10px; width:72px; pointer-events:none;
@@ -75,6 +75,10 @@
   .toolbar input::placeholder { color:var(--muted); }
   .note { font-size:.8rem; color:var(--muted); margin:0 2px 10px; }
   .note.after { margin:8px 2px 0; }
+  .abbr { text-decoration:underline dotted; text-decoration-color:rgba(255,255,255,.55); text-underline-offset:3px; cursor:help; }
+  .mtile .abbr { text-decoration-color:var(--muted); }
+  .note.key { line-height:1.6; }
+  .note.key b { color:var(--ink); }
 
   /* KPI tiles: centered, one-line titles, always a single row (scrolls sideways on small screens) */
   .stats { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 8px; scrollbar-width:thin; }
@@ -247,14 +251,16 @@ table.even.so th:nth-child(4){width:12%}table.even.so th:nth-child(5){width:13%}
 
     <h2 class="sec" id="sec-skaters">Skaters</h2>
     <div class="card"><div class="tablewrap" id="tbl-skaters"></div></div>
+    <p class="note after key" id="sk-key"></p>
 
     <h2 class="sec" id="sec-goalies">Goalies</h2>
     <div class="card"><div class="tablewrap" id="tbl-goalies"></div></div>
-    <p class="note after" id="goalie-note"></p>
+    <p class="note after key" id="goalie-note"></p>
 
     <h2 class="sec" id="sec-penalties">Penalties</h2>
     <p class="note" id="pen-summary"></p>
     <div class="card"><div class="tablewrap" id="tbl-penalties"></div></div>
+    <p class="note after key" id="pen-key"></p>
   </section>
 
   <!-- ROSTER -->
@@ -409,6 +415,32 @@ async function loadTab(name) {
   return rows.slice(1).map(r => Object.fromEntries(headers.map((h, i) => [h, (r[i] ?? "").trim()])));
 }
 
+/* Column glossary: heading -> [key text, hover text]. Headings listed here get a dotted underline and a hover label,
+   and keyFor() builds the "GP Games Played · G Goals ..." line shown under the Stats page tables (for phones). */
+const GLOSS = {
+  "GP":   ["Games Played", "Games Played"],
+  "G":    ["Goals", "Goals"],
+  "A":    ["Assists", "Assists"],
+  "P":    ["Points", "Points (goals + assists)"],
+  "+/-":  ["Plus/Minus", "Plus/Minus: +1 when on the ice for a goal for, −1 for a goal against"],
+  "P/GP": ["Points per Game", "Points per Game Played"],
+  "W":    ["Wins", "Wins"],
+  "L":    ["Losses", "Losses (regulation)"],
+  "T":    ["Ties", "Ties"],
+  "OTL":  ["OT & Shootout Losses", "Overtime & Shootout Losses"],
+  "Win %":["Win % (ties count half)", "Win percentage: (W + ½ × T) ÷ decisions"],
+  "GA":   ["Goals Against", "Goals Against"],
+  "MIN":  ["Minutes Played", "Minutes Played"],
+  "GAA":  [`Goals Against Avg (per ${CFG.gameMinutes}-min game)`, `Goals Against Average: goals allowed per full ${CFG.gameMinutes}-minute game`],
+  "SO":   ["Shutouts (full game, 0 GA)", "Shutouts: played the full game and allowed 0 goals"],
+  "PIM":  ["Penalty Minutes", "Penalty Minutes"],
+  "Gm":   ["Game", "Game number"],
+  "Dec.": ["Decision", "Decision: W, L, T or OTL (— = no decision)"],
+  "Pos":  ["Position", "Position"]
+};
+const abbr = label => GLOSS[label] ? `<span class="abbr" title="${esc(GLOSS[label][1])}">${label}</span>` : label;
+const keyFor = labels => labels.filter(l => GLOSS[l]).map(l => `<b>${esc(l)}</b> ${esc(GLOSS[l][0])}`).join(" &middot; ");
+
 /* Sortable table. cols: {k, l, n (numeric), mid (centered), f (custom cell html)}
    options: sort/asc (default sort), then (tie-break column, high to low), center (center numeric columns),
             player (rows open the player card), pen (rows open the penalty card),
@@ -440,7 +472,7 @@ function table(el, cols, rows, o = {}) {
       el.innerHTML = `<div class="msg">${em || "No data."}</div>`; return;
     }
     el.innerHTML = `<table${o.center ? ' class="ctr"' : ""}><thead><tr>${cols.map(c =>
-      `<th data-k="${c.k}" class="${(c.n ? "num " : "") + (c.mid ? "mid" : "")}">${c.l}<span class="arrow">${c.k === sk ? (asc ? "▲" : "▼") : ""}</span></th>`).join("")}</tr></thead>
+      `<th data-k="${c.k}" class="${(c.n ? "num " : "") + (c.mid ? "mid" : "")}">${abbr(c.l)}<span class="arrow">${c.k === sk ? (asc ? "▲" : "▼") : ""}</span></th>`).join("")}</tr></thead>
       <tbody>${view.map(r => `<tr${rowAttr(r)}>${cols.map(c =>
         `<td class="${(c.n ? "num" : "txt") + (c.mid ? " mid" : "")}">${c.f ? c.f(r) : esc(r[c.k])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     el.querySelectorAll("th").forEach(th => th.onclick = () => {
@@ -694,13 +726,14 @@ function renderSkaters() {
   SK.rows = skRows(D.skaters.filter(inType));
   // Default sort: points per game (ties broken by total points)
   SK.t = table($("tbl-skaters"), skaterCols(), SK.rows.filter(hit), { sort:"PPG", then:"P", player:"Player", center:true, empty:searchEmpty("No data.") });
+  $("sk-key").innerHTML = keyFor(skaterCols().map(c => c.l));
 }
 
 function renderGoalies() {
   GO.rows = goalieAgg(D.goalies.filter(inType));
   // Default sort: goals against average, lowest first (ties broken by wins)
   GO.t = table($("tbl-goalies"), goalieCols(), GO.rows.filter(hit), { sort:"GAA", asc:true, then:"W", player:"Player", center:true, empty:searchEmpty("No data.") });
-  $("goalie-note").textContent = `GAA is goals against per ${CFG.gameMinutes} minutes (one full game).`;
+  $("goalie-note").innerHTML = keyFor(goalieCols().map(c => c.l));
 }
 
 function renderPenalties() {
@@ -714,6 +747,7 @@ function renderPenalties() {
     : "";
   // Clicking a row opens the penalty card (all of that player's penalties)
   PEN.t = table($("tbl-penalties"), penaltyCols(), PEN.rows.filter(hit), { sort:"PIM", pen:"Player", center:true, empty:searchEmpty("No penalties recorded.") });
+  $("pen-key").innerHTML = keyFor(penaltyCols().map(c => c.l)) + " &middot; Minor 1.5 &middot; Major 4 &middot; Misconduct 8";
 }
 
 /* ----- Game Center -----
@@ -842,10 +876,10 @@ function renderRoster() {
 // mid: column indexes to center, e.g. [3]
 function miniTable(headers, rows, even, mid = []) {
   const cls = i => mid.includes(i) ? ' class="mid"' : "";
-  return `<div class="tablewrap"><table${even ? ' class="even"' : ""}><thead><tr>${headers.map((h, i) => `<th${cls(i)} style="cursor:default">${h}</th>`).join("")}</tr></thead>
+  return `<div class="tablewrap"><table${even ? ' class="even"' : ""}><thead><tr>${headers.map((h, i) => `<th${cls(i)} style="cursor:default">${abbr(h)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${cls(i)}>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
-const mtile = (l, v) => `<div class="mtile"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+const mtile = (l, v) => `<div class="mtile"><div class="l">${abbr(l)}</div><div class="v">${v}</div></div>`;
 
 function openPlayer(name, opp) {
   const vs = r => !opp || normOpp(r.Opponent) === normOpp(opp);
