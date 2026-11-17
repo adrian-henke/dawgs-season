@@ -308,6 +308,16 @@ const num = v => {
   return /^\(.*\)$/.test(s) ? -Math.abs(n) : n;
 };
 const bool = v => String(v).trim().toUpperCase() === "TRUE";
+// Goalie decision: W, L, T, OTL, or "" (ND / blank = no decision).
+// Reads the Decision column; also accepts Win / Loss / Tie / OT Loss / SOL, and the old W/L/T/OT checkbox columns.
+const decision = r => {
+  if ("Decision" in r) {
+    const d = String(r.Decision || "").trim().toUpperCase().replace(/[\s.-]/g, "");
+    return /^(W|WIN)$/.test(d) ? "W" : /^(L|LOSS)$/.test(d) ? "L" : /^(T|TIE)$/.test(d) ? "T"
+         : /^(OTL|OTLOSS|SOL|SOLOSS)$/.test(d) ? "OTL" : "";
+  }
+  return bool(r.W) ? "W" : bool(r.L) ? "L" : bool(r.T) ? "T" : bool(r.OT) ? "OTL" : "";
+};
 const signed = n => n > 0 ? "+" + n : String(n);
 const pm = n => `<span class="${n > 0 ? "pos" : n < 0 ? "neg" : ""}">${signed(n)}</span>`;
 const pimFmt = v => +Number(v).toFixed(1);
@@ -482,7 +492,7 @@ function goalieAgg(rows) {
   rows.forEach(r => {
     const n = r.Goalie; if (!n) return;
     let a = m.get(n); if (!a) { a = { Player:n, Jersey:r.Jersey, GP:0, W:0, L:0, T:0, OTL:0, GA:0, MIN:0, SO:0 }; m.set(n, a); }
-    a.GP++; a.W += bool(r.W) ? 1 : 0; a.L += bool(r.L) ? 1 : 0; a.T += bool(r.T) ? 1 : 0; a.OTL += bool(r.OT) ? 1 : 0;
+    a.GP++; const dc = decision(r); if (dc) a[dc]++;
     a.GA += num(r.GA); a.MIN += num(r.Minutes); a.SO += bool(r.Shutout) ? 1 : 0;
     a.Jersey = r.Jersey || a.Jersey;
   });
@@ -813,7 +823,7 @@ function openPlayer(name, opp) {
     const a = goalieAgg(grows)[0];
     tiles = mtile("GP", a.GP) + mtile("W", a.W) + mtile("L", a.L) + mtile("GA", a.GA) + mtile("GAA", a.GAA === null ? "—" : a.GAA.toFixed(2)) + mtile("SO", a.SO);
     log = miniTable(["Gm", "Date", "Opponent", "Dec.", "GA", "MIN"],
-      grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), bool(r.W) ? "W" : bool(r.L) ? "L" : bool(r.T) ? "T" : bool(r.OT) ? "OTL" : "—", esc(r.GA), esc(r.Minutes)]));
+      grows.map(r => [esc(r.Game), esc(shortDate(r.Date)), esc(r.Opponent), decision(r) || "—", esc(r.GA), esc(r.Minutes)]));
   } else tiles = `<div class="msg" style="width:100%">No game stats${opp ? " against " + esc(opp) : ""}.</div>`;
   const pens = D.penalties.filter(r => r.Player === name && vs(r));
   const penLine = pens.length ? `<p class="note" style="padding:8px 20px 0">Penalties: ${pens.length} for ${pimFmt(pens.reduce((s, r) => s + num(r.PIM), 0))} PIM</p>` : "";
