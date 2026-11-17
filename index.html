@@ -452,11 +452,16 @@ function detectColumns() {
 function prepGames(rows) {
   const today0 = new Date(); today0.setHours(0, 0, 0, 0);
   return rows.map(g => {
-    const r = String(g.Result || "").toUpperCase().trim();
-    const ot = bool(g.OT) || bool(g.Shootout);
+    // Result: W, OTW, SOW, L, OTL, SOL, T (blank = not played yet).
+    // OTW/SOW count as wins and OTL/SOL as OT losses; the suffix shows (OT) or (SO).
+    // Old OT / Shootout checkbox columns still work if a sheet has them.
+    const r = String(g.Result || "").toUpperCase().replace(/[\s./-]/g, "");
+    const so = /^SO/.test(r) || bool(g.Shootout);
+    const ot = so || /^OT/.test(r) || bool(g.OT);
+    const win = /^(W|WIN|OTW|SOW)$/.test(r), tie = /^(T|TIE)$/.test(r);
     let code = "";
-    if (r) code = r.startsWith("W") ? "W" : r.startsWith("T") ? "T" : (r === "OTL" || r === "SOL") ? "OTL" : (ot ? "OTL" : "L");
-    const suffix = bool(g.Shootout) ? " (SO)" : bool(g.OT) ? " (OT)" : "";
+    if (r) code = win ? "W" : tie ? "T" : ot ? "OTL" : "L";
+    const suffix = !code || tie ? "" : so ? " (SO)" : ot ? " (OT)" : "";
     const tourn = isTourney(g);
     return { ...g, _ts: ts(g.Date, g.Time), _gm: num(g.Game), _code: code, _played: code !== "", _suffix: suffix,
              _tourn: tourn, _hasOpp: !tourn && !isTBD(g.Opponent), _future: ts(g.Date) >= today0.getTime(),
